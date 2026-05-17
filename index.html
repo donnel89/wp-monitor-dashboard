@@ -30,6 +30,24 @@ header h1 { font-size: 20px; font-weight: 700; }
 header p { font-size: 12px; opacity: .6; margin-top: 3px; }
 #last-update { font-size: 11px; opacity: .5; }
 
+/* ---- SCAN PROGRESS BAR ---- */
+#scan-progress-bar {
+  display: none;
+  background: linear-gradient(135deg, #0f3460, #1a1a2e);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: 14px 32px;
+  color: #fff;
+}
+#scan-progress-bar.visible { display: block; }
+.progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.progress-title { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74,222,128,.4); animation: pulse 1.5s infinite; flex-shrink: 0; }
+@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(74,222,128,.4)} 70%{box-shadow:0 0 0 8px rgba(74,222,128,0)} 100%{box-shadow:0 0 0 0 rgba(74,222,128,0)} }
+.progress-meta { display: flex; gap: 24px; font-size: 13px; opacity: .8; flex-wrap: wrap; }
+.progress-meta span { display: flex; align-items: center; gap: 5px; }
+.progress-track { height: 8px; background: rgba(255,255,255,.1); border-radius: 10px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #4ade80, #22d3ee); transition: width 5s linear; }
+
 .scan-btn-group { display: flex; gap: 8px; align-items: center; }
 .scan-btn { padding: 8px 18px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; }
 .scan-btn.daily  { background: #3b82f6; color: #fff; }
@@ -148,6 +166,25 @@ header p { font-size: 12px; opacity: .6; margin-top: 3px; }
       <button class="scan-btn monthly" onclick="triggerScan('monthly-scan.yml','חודשי', this)">▶ חודשי</button>
     </div>
   </header>
+
+  <!-- PROGRESS BAR -->
+  <div id="scan-progress-bar">
+    <div class="progress-header">
+      <div class="progress-title">
+        <div class="pulse-dot"></div>
+        <span id="progress-label">סריקה בפעולה</span>
+      </div>
+      <div class="progress-meta">
+        <span>⏱ התחלה: <b id="progress-started">--</b></span>
+        <span>⏳ עבר: <b id="progress-elapsed">--</b></span>
+        <span>🏁 סיום משוער: <b id="progress-eta">--</b></span>
+        <span id="progress-pct-wrap">📊 <b id="progress-pct">0%</b></span>
+      </div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
 
   <div class="container">
     <!-- TOP TABS -->
@@ -448,15 +485,90 @@ async function saveUrls(mode) {
 }
 
 // ============================================================
+//  SCAN PROGRESS
+// ============================================================
+const SCAN_DURATIONS = {
+  'daily-scan.yml':   10,   // דקות משוערות
+  'weekly-scan.yml':  18,
+  'monthly-scan.yml': 90
+};
+const WORKFLOW_LABELS = {
+  'daily-scan.yml':   'סריקה יומית',
+  'weekly-scan.yml':  'סריקה שבועית',
+  'monthly-scan.yml': 'סריקה חודשית'
+};
+
+let progressTimer = null;
+
+async function checkRunningScans() {
+  try {
+    const res = await fetch(
+      `${GH_API}/repos/${PRIVATE_REPO}/actions/runs?status=in_progress&per_page=3`,
+      { headers: { 'Authorization': `Bearer ${GH_TOKEN}` } }
+    );
+    const data = await res.json();
+    const runs = data.workflow_runs || [];
+
+    if (runs.length === 0) {
+      hideScanProgress();
+      return;
+    }
+
+    // לוקחים את הריצה הראשונה הפעילה
+    const run = runs[0];
+    const wfFile = run.path.split('/').pop(); // e.g. "daily-scan.yml"
+    const label  = WORKFLOW_LABELS[wfFile] || 'סריקה';
+    const estMin = SCAN_DURATIONS[wfFile]  || 30;
+
+    const startedAt  = new Date(run.created_at);
+    const nowMs      = Date.now();
+    const elapsedMs  = nowMs - startedAt.getTime();
+    const elapsedMin = elapsedMs / 60000;
+    const pct        = Math.min(99, Math.round((elapsedMin / estMin) * 100));
+    const etaMs      = startedAt.getTime() + estMin * 60000;
+    const etaDate    = new Date(etaMs);
+
+    document.getElementById('scan-progress-bar').classList.add('visible');
+    document.getElementById('progress-label').textContent   = `⚙️ ${label} בפעולה...`;
+    document.getElementById('progress-started').textContent = startedAt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('progress-elapsed').textContent = formatElapsed(elapsedMs);
+    document.getElementById('progress-eta').textContent     = etaDate.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}) +
+      (etaMs < nowMs ? ' (בקרוב)' : '');
+    document.getElementById('progress-pct').textContent     = pct + '%';
+    document.getElementById('progress-fill').style.width    = pct + '%';
+
+  } catch(e) {
+    // שגיאת רשת — לא מציגים כלום
+  }
+}
+
+function hideScanProgress() {
+  document.getElementById('scan-progress-bar').classList.remove('visible');
+}
+
+function formatElapsed(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return min > 0 ? `${min}:${String(sec).padStart(2,'0')} דקות` : `${sec} שניות`;
+}
+
+// ============================================================
 //  INIT
 // ============================================================
 if (sessionStorage.getItem('wp_auth') === '1') {
   loadMode('daily', document.querySelector('.tab'));
   loadConfig();
+  checkRunningScans();
 }
+// רענון תוצאות כל 5 דקות
 setInterval(() => {
   if (sessionStorage.getItem('wp_auth') === '1') loadMode(currentMode, null);
 }, 5 * 60 * 1000);
+// בדיקת סריקה פעילה כל 30 שניות
+setInterval(() => {
+  if (sessionStorage.getItem('wp_auth') === '1') checkRunningScans();
+}, 30 * 1000);
 </script>
 </body>
 </html>
