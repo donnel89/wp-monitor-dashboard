@@ -151,6 +151,24 @@
     .select-site { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; margin-bottom: 16px; min-width: 220px; }
     .select-site:focus { outline: none; border-color: #3b82f6; }
 
+    /* ---- AUTO-DETECT PREVIEW ---- */
+    .detect-bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .btn-detect { background: #0f3460; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .btn-detect:hover { background: #1e4b8f; }
+    .btn-detect:disabled { opacity: .55; cursor: not-allowed; }
+    .detect-hint { font-size: 11px; color: #94a3b8; }
+    #detected-preview { display: none; margin-top: 16px; background: #f8faff; border: 1px solid #c7d9ff; border-radius: 10px; padding: 16px; }
+    #detected-preview h4 { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: #1e3a8a; }
+    .dp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .dp-col h5 { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .dp-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+    .dp-url { display: flex; align-items: baseline; gap: 6px; font-size: 11px; }
+    .dp-num { color: #94a3b8; font-size: 10px; min-width: 18px; text-align: right; }
+    .dp-url a { color: #2563eb; text-decoration: none; word-break: break-all; }
+    .dp-url a:hover { text-decoration: underline; }
+    .dp-more { font-size: 11px; color: #64748b; padding: 4px 0; }
+    .dp-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; border-top: 1px solid #dbeafe; padding-top: 12px; }
+
     /* ---- MISC ---- */
     .loading    { text-align: center; padding: 40px; color: #888; font-size: 14px; }
     .error-msg  { text-align: center; padding: 30px; color: #dc2626; font-size: 14px; }
@@ -257,8 +275,36 @@
         <div class="form-group" style="grid-column:1/-1">
           <label>URL של Sitemap (לסריקה חודשית)</label>
           <input type="url" id="ns-sitemap" placeholder="https://example.com/sitemap_index.xml" dir="ltr">
+          <div class="detect-bar">
+            <button class="btn-detect" id="detect-btn" onclick="autoDetectPages()">
+              🔍 זהה עמודים אוטומטית
+            </button>
+            <span class="detect-hint">סורק את ה-sitemap ובוחר 10 יומיים + 50 שבועיים</span>
+          </div>
         </div>
       </div>
+
+      <!-- תצוגה מקדימה של עמודים שזוהו -->
+      <div id="detected-preview">
+        <h4>✅ עמודים שזוהו אוטומטית</h4>
+        <div class="dp-cols">
+          <div class="dp-col">
+            <h5>יומי — 10 עמודים קריטיים</h5>
+            <div class="dp-list" id="dp-daily"></div>
+          </div>
+          <div class="dp-col">
+            <h5>שבועי — <span id="dp-weekly-count">0</span> עמודים</h5>
+            <div class="dp-list" id="dp-weekly"></div>
+          </div>
+        </div>
+        <div class="dp-actions">
+          <button class="btn btn-muted btn-sm" onclick="clearDetected()">× בטל זיהוי</button>
+          <span style="font-size:11px;color:#64748b;align-self:center">העמודים יישמרו בלחיצה על "הוסף אתר"</span>
+        </div>
+      </div>
+
+      <input type="hidden" id="ns-daily-urls" value="">
+      <input type="hidden" id="ns-weekly-urls" value="">
       <br>
       <button class="btn btn-primary" onclick="addSite()">הוסף אתר</button>
     </div>
@@ -551,17 +597,30 @@ async function addSite() {
   if (!id||!name||!baseUrl||!email) { showToast('מלא את כל שדות החובה','error'); return; }
   if (!configData) { showToast('הגדרות לא נטענו','error'); return; }
   if (configData.sites.find(s=>s.id===id)) { showToast('מזהה כבר קיים','error'); return; }
+
+  // Use auto-detected URLs if available
+  let dailyUrls = [], weeklyUrls = [];
+  try {
+    const dVal = document.getElementById('ns-daily-urls').value;
+    const wVal = document.getElementById('ns-weekly-urls').value;
+    if (dVal) dailyUrls  = JSON.parse(dVal);
+    if (wVal) weeklyUrls = JSON.parse(wVal);
+  } catch {}
+
   configData.sites.push({
     id, name, baseUrl, alertEmail: email, active: true,
-    daily:   { urls: [] },
-    weekly:  { urls: [] },
+    daily:   { urls: dailyUrls },
+    weekly:  { urls: weeklyUrls },
     monthly: { sitemapUrl: sitemap||`${baseUrl}/sitemap_index.xml`, maxUrls: 500 }
   });
   await saveConfig('הוספת אתר: ' + name);
   renderSitesManage();
   populatePagesDropdown();
-  ['ns-id','ns-name','ns-url','ns-email','ns-sitemap'].forEach(id => document.getElementById(id).value='');
-  showToast('האתר נוסף בהצלחה','success');
+  ['ns-id','ns-name','ns-url','ns-email','ns-sitemap','ns-daily-urls','ns-weekly-urls'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  clearDetected();
+  showToast(`האתר נוסף בהצלחה${dailyUrls.length ? ` עם ${dailyUrls.length} עמודים יומיים` : ' — הוסף עמודים מטאב ניהול עמודים'}`,'success');
 }
 
 async function deleteSite(idx) {
@@ -769,6 +828,136 @@ function showToast(msg, type='') {
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => { t.classList.add('hide'); setTimeout(()=>t.remove(),400); }, 3500);
+}
+
+// ============================================================
+//  AUTO-DETECT PAGES FROM SITEMAP
+// ============================================================
+async function autoDetectPages() {
+  const baseUrl    = document.getElementById('ns-url').value.trim().replace(/\/$/, '');
+  const sitemapVal = document.getElementById('ns-sitemap').value.trim();
+  if (!baseUrl) { showToast('הזן כתובת בסיס תחילה', 'error'); return; }
+
+  const btn = document.getElementById('detect-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>סורק sitemap...';
+
+  try {
+    const sitemapUrl = sitemapVal || `${baseUrl}/sitemap_index.xml`;
+    let urls = await fetchSitemapViaProxy(sitemapUrl, 300);
+
+    // Fallback to sitemap.xml
+    if (urls.length === 0 && !sitemapVal) {
+      urls = await fetchSitemapViaProxy(`${baseUrl}/sitemap.xml`, 300);
+    }
+
+    if (urls.length === 0) {
+      showToast('לא נמצא sitemap — הוסף עמודים ידנית מאוחר יותר', 'error');
+      return;
+    }
+
+    // Score, sort, de-dupe
+    const scored = [...new Set(urls)]
+      .map(url => ({ url, score: scoreUrl(url, baseUrl) }))
+      .sort((a, b) => b.score - a.score);
+
+    const daily  = scored.slice(0, 10).map(s => s.url);
+    const weekly = scored.slice(0, 50).map(s => s.url);
+
+    document.getElementById('ns-daily-urls').value  = JSON.stringify(daily);
+    document.getElementById('ns-weekly-urls').value = JSON.stringify(weekly);
+
+    renderDetectedPreview(daily, weekly, urls.length);
+    showToast(`נמצאו ${urls.length} עמודים ✓ נבחרו ${daily.length} יומיים + ${weekly.length} שבועיים`, 'success');
+  } catch(e) {
+    showToast('שגיאה בסריקת sitemap: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 זהה עמודים אוטומטית';
+  }
+}
+
+async function fetchSitemapViaProxy(sitemapUrl, maxUrls) {
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(sitemapUrl)}`;
+  const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+  if (!res.ok) return [];
+  const xml = await res.text();
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+
+  // Regular sitemap
+  const locs = doc.querySelectorAll('url > loc');
+  if (locs.length > 0) {
+    return Array.from(locs).map(el => el.textContent.trim()).slice(0, maxUrls);
+  }
+
+  // Sitemap index — recurse into sub-sitemaps (max 8)
+  const subSitemaps = Array.from(doc.querySelectorAll('sitemap > loc')).slice(0, 8);
+  const urls = [];
+  for (const sm of subSitemaps) {
+    const sub = await fetchSitemapViaProxy(sm.textContent.trim(), maxUrls - urls.length);
+    urls.push(...sub);
+    if (urls.length >= maxUrls) break;
+  }
+  return urls.slice(0, maxUrls);
+}
+
+function scoreUrl(url, baseUrl) {
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+
+    // Homepage = top priority
+    if (path === '/' || path === '') return 1000;
+
+    let score = 0;
+
+    // Shorter path = more important
+    const segments = path.split('/').filter(Boolean);
+    score += Math.max(0, 80 - segments.length * 15);
+
+    // High-value English keywords
+    const high = ['contact','about','shop','store','service','pricing','price','product','portfolio','team'];
+    const med  = ['blog','faq','help','support','gallery','news','project','work','clients'];
+    if (high.some(k => path.includes(k))) score += 40;
+    else if (med.some(k => path.includes(k))) score += 20;
+
+    // High-value Hebrew URL patterns (encoded)
+    const heHigh = ['%d7%a6%d7%95%d7%a8','%d7%90%d7%95%d7%93%d7%95%d7%aa','%d7%97%d7%a0%d7%95%d7%aa',
+                    '%d7%a9%d7%99%d7%a8%d7%95%d7%aa','%d7%9e%d7%97%d7%99%d7%a8','%d7%a7%d7%a9%d7%a8'];
+    if (heHigh.some(k => url.toLowerCase().includes(k))) score += 35;
+
+    // Penalise deep/param-heavy URLs
+    if (segments.length >= 4) score -= 20;
+    if (url.includes('?') || url.includes('#')) score -= 30;
+    if (url.match(/\d{4}\/\d{2}\/\d{2}/)) score -= 25; // date-based blog posts
+
+    return score;
+  } catch { return 0; }
+}
+
+function renderDetectedPreview(daily, weekly, totalFound) {
+  const preview = document.getElementById('detected-preview');
+  preview.style.display = 'block';
+
+  document.getElementById('dp-daily').innerHTML = daily.map((u, i) =>
+    `<div class="dp-url"><span class="dp-num">${i+1}</span><a href="${u}" target="_blank">${decodeURIComponent(new URL(u).pathname)}</a></div>`
+  ).join('');
+
+  const weeklyList = document.getElementById('dp-weekly');
+  document.getElementById('dp-weekly-count').textContent = weekly.length;
+  weeklyList.innerHTML = weekly.map((u, i) =>
+    `<div class="dp-url"><span class="dp-num">${i+1}</span><a href="${u}" target="_blank">${decodeURIComponent(new URL(u).pathname)}</a></div>`
+  ).join('');
+
+  if (totalFound > 50) {
+    weeklyList.insertAdjacentHTML('beforeend',
+      `<div class="dp-more">+ ${totalFound - 50} עמודים נוספים יסרקו בסריקה החודשית</div>`);
+  }
+}
+
+function clearDetected() {
+  document.getElementById('detected-preview').style.display = 'none';
+  document.getElementById('ns-daily-urls').value  = '';
+  document.getElementById('ns-weekly-urls').value = '';
 }
 
 // ============================================================
