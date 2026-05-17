@@ -1452,11 +1452,12 @@ const FIX_GUIDE = {
   mobile_hscroll: {
     label: 'גלילה אופקית במובייל',
     steps: [
-      'אלמנט כלשהו רחב יותר מהמסך — גורם לגלילה ימינה/שמאלה',
-      'הוסף ל-CSS: <code>body { overflow-x: hidden; }</code> כפתרון מהיר',
-      'בדוק ב-Chrome DevTools: Toggle Device Mode → בחפש אלמנטים עם overflow',
-      'סיבות נפוצות: טבלה, תמונה ללא max-width, iframe, Slider',
-      'פתרון נכון: הוסף <code>max-width: 100%;</code> לאלמנטים בעייתיים',
+      'הדוח מציין את <b>האלמנטים החשודים</b> (selector + כמה פיקסלים חורגים) — התחל משם',
+      'פתרון מהיר: <code>body, html { overflow-x: hidden; max-width: 100%; }</code>',
+      'פתרון נכון לאלמנט ספציפי: הוסף <code>max-width: 100%; overflow: hidden;</code> לאלמנט הגורם',
+      'סיבות נפוצות: תמונה ללא max-width, iframe, טבלה, Slider, Section ב-Elementor עם Padding גדול',
+      'Chrome DevTools: פתח DevTools → Toggle Device Mode → Elements → בחר כל אלמנט → בדוק Computed → Width',
+      'כלי מהיר לגילוי: הרץ ב-Console: <code>document.querySelectorAll("*"[…]).filter(e=>e.getBoundingClientRect().right>window.innerWidth)</code>',
     ]
   },
 
