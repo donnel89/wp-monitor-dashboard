@@ -1182,6 +1182,55 @@ const FIX_GUIDE = {
       'בדוק שה-CSS של ה-tab הפעיל (.active) מוגדר נכון',
       'קונפליקט Bootstrap/jQuery — ודא שיש רק גרסה אחת של jQuery בדף',
     ]
+  },
+  form_submit_error: {
+    label: 'שגיאה בשליחת טופס',
+    steps: [
+      'מלא את הטופס ידנית ולחץ שלח — מה מוצג על המסך?',
+      'בדוק Console (F12) לשגיאות JS בעת שליחה',
+      'ב-Contact Form 7: בדוק Settings → Email שהכתובת תקינה',
+      'ב-WPForms / Gravity Forms: בדוק Notifications → אימות כתובת שליחה',
+      'בדוק שה-SMTP מוגדר (תוסף WP Mail SMTP) ושולח מיילים בהצלחה',
+    ]
+  },
+  form_no_response: {
+    label: 'טופס ללא הודעת אישור',
+    steps: [
+      'שלח הטופס ידנית — האם מופיע "תודה" / מעבר לדף אישור?',
+      'ב-CF7: בדוק שה-"Mail Sent" message מוגדר ב-Messages tab',
+      'ב-Elementor Forms: בדוק Actions After Submit → Success Message',
+      'בדוק שה-Thank You Page מוגדר נכון אם משתמשים ב-redirect',
+      'בדוק Console (F12) — ייתכן שה-AJAX request נכשל בשקט',
+    ]
+  },
+  lazy_images_broken: {
+    label: 'תמונות Lazy Load שבורות',
+    steps: [
+      'תמונות אלו נטענות רק בגלילה — אבל הן שבורות גם אז',
+      'בדוק WordPress → Media Library שהקבצים קיימים',
+      'בדוק שתוסף ה-Lazy Load מוגדר נכון (Smush, a3 Lazy Load, BJ Lazy Load)',
+      'בדוק שה-src/data-src של התמונות מצביע לנתיב נכון',
+      'נסה להשבית את תוסף ה-Lazy Load זמנית לבדיקה',
+    ]
+  },
+  header_scroll: {
+    label: 'Header נעלם בגלילה',
+    steps: [
+      'ב-Elementor: בדוק Header → Motion Effects → Sticky → Sticky On Scroll Up',
+      'ב-Astra/OceanWP/GeneratePress: Customizer → Header → Sticky Header → הפעל',
+      'בדוק CSS שאין <code>position: absolute</code> שמחליף את ה-sticky',
+      'בדוק שתוסף Cache לא שיבש את ה-CSS של ה-sticky header',
+    ]
+  },
+  popup_broken: {
+    label: 'Popup / Lightbox לא נפתח',
+    steps: [
+      'לחץ ידנית על הכפתור/תמונה — האם ה-popup נפתח?',
+      'בדוק Console (F12) לשגיאות JS בעת לחיצה',
+      'בדוק שתוסף ה-Lightbox פעיל (Fancybox, Magnific Popup, WP Lightbox)',
+      'ב-Elementor: בדוק שה-Lightbox מופעל ב-Settings → Style → Lightbox',
+      'קונפליקט jQuery — בדוק שלא נטען jQuery פעמיים',
+    ]
   }
 };
 
