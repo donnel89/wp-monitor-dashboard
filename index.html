@@ -942,6 +942,192 @@ const FIX_GUIDE = {
       'בדוק אם הדף היעד פורסם (Published) ולא נשאר Draft',
       'אם זה קישור חיצוני — ייתכן שהאתר החיצוני השתנה, בדוק ידנית',
     ]
+  },
+
+  // SEO
+  seo_title: {
+    label: 'בעיה בתג Title',
+    steps: [
+      'ב-Yoast SEO / Rank Math: ערוך את שדה "SEO Title" לכל עמוד',
+      'אורך אידיאלי: 50-60 תווים — כולל מילת מפתח ראשית ושם האתר',
+      'בדוק ב-Google Search Console: Performance → Pages לראות כותרות נוכחיות',
+      'בעמוד הבית: שם העסק + שירות עיקרי + עיר (לSEO מקומי)',
+    ]
+  },
+  seo_description: {
+    label: 'בעיה ב-Meta Description',
+    steps: [
+      'ב-Yoast SEO / Rank Math: ערוך את שדה "Meta Description" לכל עמוד',
+      'אורך אידיאלי: 120-155 תווים — תיאור מפתה עם קריאה לפעולה',
+      'כלול את מילת המפתח הראשית בטבעיות',
+      'כל עמוד חייב description ייחודי — אל תשכפל',
+    ]
+  },
+  seo_h1: {
+    label: 'בעיה בתג H1',
+    steps: [
+      'כל עמוד חייב H1 <b>אחד בלבד</b> — הכותרת הראשית',
+      'ב-Elementor: בדוק שכותרת הפותחת היא "H1" ולא H2/H3',
+      'אם יש כמה H1 — שנה את כולם פרט לאחד ל-H2 או H3',
+      'כלול את מילת המפתח הראשית ב-H1',
+    ]
+  },
+  seo_noindex: {
+    label: '⛔ עמוד מסומן NoIndex',
+    steps: [
+      '<b>זה קריטי!</b> גוגל לא יסרוק ולא יאנדקס את הדף הזה',
+      'ב-WordPress → Settings → Reading: בדוק שה-checkbox "Discourage search engines" כבוי',
+      'ב-Yoast SEO: ערוך את העמוד → Advanced → ודא שה-robots מוגדר ל-"index"',
+      'לאחר תיקון: בקש אינדוקס מחדש ב-Google Search Console',
+    ]
+  },
+  seo_og: {
+    label: 'חסרים תגי Open Graph',
+    steps: [
+      'ב-Yoast SEO: ודא שה-Social module מופעל (Yoast → Social)',
+      'הוסף תמונת OG ייחודית לכל עמוד: Yoast → Social → Facebook Image',
+      'גודל מומלץ לתמונת OG: 1200×630 פיקסלים',
+      'בדוק תצוגה מקדימה של שיתוף: developers.facebook.com/tools/debug',
+    ]
+  },
+
+  // תמונות ותוכן
+  broken_images: {
+    label: 'תמונות שבורות',
+    steps: [
+      'עבור ל-WordPress → Media Library וחפש את הקבצים הנ"ל',
+      'תמונות נמחקות לעיתים בהעברת אתר — בדוק שה-uploads folder קיים בשרת',
+      'השתמש בתוסף Broken Link Checker לסריקה מלאה',
+      'החלף את התמונות החסרות או הסר את ה-img tags הרלוונטיים',
+    ]
+  },
+  mixed_content: {
+    label: 'Mixed Content (HTTP על HTTPS)',
+    steps: [
+      'התקן תוסף Really Simple SSL — הוא מתקן רוב בעיות Mixed Content אוטומטית',
+      'ב-Cloudflare: הפעל Automatic HTTPS Rewrites',
+      'חפש בקוד/בעורך בקישורים שמתחילים ב-<code>http://</code> (לא https)',
+      'עדכן את כתובת האתר ב-Settings → General מ-http ל-https',
+    ]
+  },
+  broken_links: {
+    label: 'קישורים פנימיים שבורים',
+    steps: [
+      'לחץ על הקישורים שמוצגים ישירות מהדשבורד לוידוא',
+      'אם הדף נמחק: הוסף Redirect 301 בתוסף Redirection',
+      'אם הדף קיים אך שינה URL: עדכן את הקישור בעורך',
+      'לסריקה מלאה של קישורים שבורים: השתמש ב-Screaming Frog או Broken Link Checker',
+    ]
+  },
+
+  // נגישות
+  a11y_alt: {
+    label: 'תמונות ללא Alt Text',
+    steps: [
+      'ב-WordPress → Media Library: ערוך כל תמונה והוסף Alt Text תיאורי',
+      'ב-Elementor: לחץ על תמונה → Style → Image Alt',
+      'Alt text טוב: תאר מה בתמונה + כלול מילת מפתח באופן טבעי',
+      'תמונות דקורטיביות: הוסף alt="" ריק (לא להשאיר ללא attribute)',
+    ]
+  },
+  a11y_btn: {
+    label: 'כפתורים ללא תיאור נגיש',
+    steps: [
+      'הוסף <code>aria-label="תיאור הכפתור"</code> לכפתורים ללא טקסט גלוי',
+      'לדוגמה: כפתור X לסגירה → <code>aria-label="סגור"</code>',
+      'ב-Elementor: ערוך Widget → Advanced → Accessibility',
+      'חשוב לקוראי מסך וגם לדירוג Google',
+    ]
+  },
+
+  // GDPR & יצירת קשר
+  gdpr_missing: {
+    label: 'חסר באנר עוגיות GDPR',
+    steps: [
+      'התקן תוסף: Cookie Notice, GDPR Cookie Compliance, או Cookiebot',
+      'הגדר את הכפתורים: אישור / דחייה / העדפות',
+      'ודא שהבאנר מופיע בביקור ראשון — לפני הפעלת Google Analytics',
+      'לאתרים ישראליים: חובה לפי חוק הגנת הפרטיות',
+    ]
+  },
+  missing_phone: {
+    label: 'מספר טלפון חסר',
+    steps: [
+      'הוסף מספר טלפון בולט ב-Header ובעמוד "צור קשר"',
+      'השתמש בתג <code>&lt;a href="tel:05X-XXXXXXX"&gt;</code> לטלפון לחיץ במובייל',
+      'הוסף גם קישור WhatsApp: <code>https://wa.me/972XXXXXXXXX</code>',
+      'חשוב ל-SEO מקומי: ודא שהמספר זהה ב-Google Business Profile',
+    ]
+  },
+
+  // Core Web Vitals
+  cwv_lcp: {
+    label: 'LCP איטי (Largest Contentful Paint)',
+    steps: [
+      'LCP = זמן עד שהאלמנט הגדול בדף נטען (תמונה/כותרת ראשית)',
+      'האט עיקרי: תמונה Hero גדולה — דחוס ל-WebP, הוסף <code>loading="eager"</code> ו-<code>fetchpriority="high"</code>',
+      'הפעל Cache בשרת (WP Rocket, LiteSpeed Cache)',
+      'הפעל CDN (Cloudflare) — מגיש קבצים מ-server קרוב לגולש',
+      'בדוק TTFB (זמן תגובת שרת) — מעל 800ms שקול שדרוג Hosting',
+    ]
+  },
+  cwv_cls: {
+    label: 'CLS גבוה (Cumulative Layout Shift)',
+    steps: [
+      'CLS = כמה הדף "קופץ" בזמן הטעינה (מאוד מרגיז לגולשים)',
+      'סיבות נפוצות: תמונות ללא width/height מוגדרים, פרסומות, Web Fonts',
+      'הוסף מידות לכל תמונה: <code>width="X" height="Y"</code> ב-HTML',
+      'לפונטים: הוסף <code>font-display: swap</code> ב-CSS',
+      'תוסף Cache עם Critical CSS יכול לעזור מאוד',
+    ]
+  },
+
+  // SSL
+  ssl_expiry: {
+    label: 'תעודת SSL עומדת לפוג',
+    steps: [
+      'צור קשר עם ספק האחסון לחידוש SSL, או חדש ידנית ב-cPanel',
+      "אם משתמשים ב-Let's Encrypt: ודא שה-auto-renewal מוגדר (cron job)",
+      'ב-Cloudflare: בדוק Edge Certificate שנמצא ב-SSL/TLS → Edge Certificates',
+      'לאחר חידוש: בדוק שהדף לא מציג אזהרת אבטחה בדפדפן',
+    ]
+  },
+  ssl_expired: {
+    label: '⛔ SSL פג תוקף',
+    steps: [
+      '<b>דחוף מאוד!</b> — גולשים רואים אזהרת "אתר לא מאובטח" ועוזבים',
+      'פנה מיידית לספק האחסון לחידוש SSL',
+      "Let's Encrypt: הרץ <code>certbot renew --force-renewal</code>",
+      'לאחר חידוש: רוקן Cache ב-Cloudflare (Purge Everything)',
+    ]
+  },
+
+  // WordPress Security
+  wp_login_exposed: {
+    label: 'wp-login.php חשוף',
+    steps: [
+      'התקן תוסף Limit Login Attempts Reloaded לחסימת Brute Force',
+      'שנה את כתובת ה-Login: תוסף WPS Hide Login (מומלץ)',
+      'הוסף Two-Factor Authentication (2FA): תוסף WP 2FA',
+      'ב-Cloudflare: הוסף Firewall Rule שחוסם גישה ל-/wp-login.php מ-IPs זרים',
+    ]
+  },
+  wp_xmlrpc: {
+    label: 'xmlrpc.php פתוח',
+    steps: [
+      'הוסף ל-<code>.htaccess</code>: <code>&lt;Files xmlrpc.php&gt; Deny from all &lt;/Files&gt;</code>',
+      'או התקן תוסף: Disable XML-RPC',
+      'ב-Cloudflare: חסום גישה ל-/xmlrpc.php בחוקי Firewall',
+      'שים לב: אם משתמשים ב-Jetpack — הוא דורש xmlrpc, בדוק קודם',
+    ]
+  },
+  wp_version_exposed: {
+    label: 'גרסת WordPress חשופה',
+    steps: [
+      'הוסף לקובץ <code>functions.php</code> של התבנית: <code>remove_action(\'wp_head\', \'wp_generator\');</code>',
+      'תוסף WP Hardening / Hide My WP Ghost מסיר זאת אוטומטית',
+      'גם ודא שגרסת WordPress מעודכנת תמיד — חשוב לאבטחה',
+    ]
   }
 };
 
