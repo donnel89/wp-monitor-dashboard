@@ -1139,6 +1139,13 @@ function buildIssueBlock(issue) {
   const guide  = FIX_GUIDE[issue.type] || null;
   const label  = guide?.label || issue.type;
   const sev    = issue.severity;
+
+  // הצג label נפרד רק אם ההודעה לא כוללת כבר את שם הסוג
+  const msgLower = issue.message.toLowerCase();
+  const labelLower = label.toLowerCase().replace(/[^א-תa-z0-9]/g, '');
+  const showLabel = !msgLower.includes(labelLower.slice(0, 5));
+  const display = showLabel ? `<b>${label}:</b> ${issue.message}` : issue.message;
+
   const stepsHtml = guide
     ? `<div class="fix-guide">
         <div class="fix-guide-title">💡 כיצד לתקן:</div>
@@ -1150,7 +1157,7 @@ function buildIssueBlock(issue) {
   return `<div class="issue-block sev-${sev}">
     <div class="issue-top" ${cursor}>
       <span class="viewport-badge">${issue.viewport||''}</span>
-      <span class="issue-chip chip-${sev}" style="background:none;padding:0">${label}: ${issue.message}</span>
+      <span class="issue-chip chip-${sev}" style="background:none;padding:0">${display}</span>
       ${arrow}
     </div>
     ${stepsHtml}
