@@ -1039,6 +1039,89 @@ const FIX_GUIDE = {
       'חשוב לקוראי מסך וגם לדירוג Google',
     ]
   },
+  a11y_lang: {
+    label: 'חסר lang ב-HTML',
+    steps: [
+      'הוסף מאפיין lang לתג הפותח: <code>&lt;html lang="he"&gt;</code>',
+      'ב-WordPress: ודא שב-Settings → General, שפת האתר מוגדרת לעברית',
+      'קוראי מסך (NVDA, VoiceOver) משתמשים ב-lang כדי לדעת באיזה שפה לקרוא',
+      'WCAG 3.1.1 — דרישת Level A (חובה)',
+    ]
+  },
+  a11y_form_label: {
+    label: 'שדות טופס ללא label',
+    steps: [
+      'כל שדה <code>&lt;input&gt;</code>, <code>&lt;select&gt;</code>, <code>&lt;textarea&gt;</code> חייב label מקושר',
+      'שיטה 1: <code>&lt;label for="email"&gt;אימייל&lt;/label&gt;&lt;input id="email"&gt;</code>',
+      'שיטה 2: הוסף <code>aria-label="שם השדה"</code> ישירות על ה-input',
+      'ב-Contact Form 7 / WPForms: ערוך את הטופס והוסף תוויות לכל שדה',
+      'WCAG 1.3.1 — Level A (חובה)',
+    ]
+  },
+  a11y_link_text: {
+    label: 'קישורים עם טקסט לא תיאורי',
+    steps: [
+      'קישורים עם "לחץ כאן" / "קרא עוד" לא מספרים לגולש מה יקרה',
+      'שנה את הטקסט לתיאורי: "קרא עוד על שירותי SEO" במקום "קרא עוד"',
+      'אם הטקסט חייב להישאר קצר — הוסף <code>aria-label="תיאור מלא"</code> לקישור',
+      'WCAG 2.4.4 — Level A (חובה)',
+    ]
+  },
+  a11y_landmark: {
+    label: 'חסר main landmark',
+    steps: [
+      'הוסף תג <code>&lt;main&gt;</code> שעוטף את התוכן הראשי של הדף',
+      'ב-WordPress עם תבנית מותאמת: ערוך את <code>page.php</code> / <code>singular.php</code> והוסף <code>&lt;main&gt;</code>',
+      'ב-Elementor/Divi: רוב התבניות כוללות <code>&lt;main&gt;</code> אוטומטית — ודא שהתבנית לא הוסרה',
+      'WCAG 1.3.6 — מאפשר לקוראי מסך לדלג ישירות לתוכן ("Skip to Content")',
+    ]
+  },
+  a11y_heading: {
+    label: 'היררכיית כותרות שבורה',
+    steps: [
+      'כותרות חייבות לרדת ברצף: H1 → H2 → H3 (אין לדלג מ-H1 ישר ל-H3)',
+      'ב-Elementor: בחר כל Heading widget ושנה את "HTML Tag" לרמה הנכונה',
+      'בדוק שיש כותרת H1 אחת בלבד — הכותרת הראשית של הדף',
+      'WCAG 1.3.1 — קוראי מסך מנווטים לפי כותרות',
+    ]
+  },
+  a11y_iframe: {
+    label: 'iframes ללא title',
+    steps: [
+      'הוסף <code>title="תיאור תוכן ה-iframe"</code> לכל תג iframe',
+      'לדוגמה: מפת Google → <code>title="מפת מיקום המשרד"</code>',
+      'לווידאו YouTube: <code>title="סרטון הסבר על השירות"</code>',
+      'WCAG 4.1.2 — Level A (חובה)',
+    ]
+  },
+  a11y_tabindex: {
+    label: 'tabindex חיובי',
+    steps: [
+      'tabindex עם ערך חיובי (1, 2, 3...) שובר את סדר הניווט הטבעי של המקלדת',
+      'שנה את כל <code>tabindex="1"</code> וכו\' ל-<code>tabindex="0"</code> (מכניס לסדר הטבעי)',
+      'אם צריך להוציא אלמנט מסדר הניווט: השתמש ב-<code>tabindex="-1"</code>',
+      'WCAG 2.4.3 — Level A (חובה)',
+    ]
+  },
+  a11y_autoplay: {
+    label: 'וידאו autoplay ללא controls',
+    steps: [
+      'וידאו שמתנגן אוטומטית ללא controls מונע שליטה של הגולש',
+      'הוסף <code>controls</code> לתג video: <code>&lt;video autoplay controls&gt;</code>',
+      'שקול להסיר autoplay לחלוטין — רוב הגולשים מתרגזים מוידאו שמתנגן לבד',
+      'לפחות הוסף <code>muted</code>: וידאו מושתק נחשב פחות חמור',
+      'WCAG 1.4.2 — Level A (חובה)',
+    ]
+  },
+  a11y_table: {
+    label: 'טבלאות ללא headers',
+    steps: [
+      'הוסף <code>&lt;th&gt;</code> לשורת/עמודת הכותרת במקום <code>&lt;td&gt;</code>',
+      'הוסף <code>scope="col"</code> לכותרות עמודה ו-<code>scope="row"</code> לכותרות שורה',
+      'לטבלאות מורכבות: הוסף <code>&lt;caption&gt;</code> עם תיאור כללי לטבלה',
+      'WCAG 1.3.1 — קוראי מסך קוראים כותרות לכל תא כדי לספק הקשר',
+    ]
+  },
 
   // GDPR & יצירת קשר
   gdpr_missing: {
@@ -1222,6 +1305,230 @@ const FIX_GUIDE = {
       'בדוק שתוסף Cache לא שיבש את ה-CSS של ה-sticky header',
     ]
   },
+  // ביצועים
+  perf_ttfb: {
+    label: 'TTFB — תגובת שרת איטית',
+    steps: [
+      'TTFB = זמן עד שהשרת מתחיל לשלוח תגובה — מושפע מ-Hosting ו-Cache',
+      'הפעל Page Cache (WP Rocket, LiteSpeed) — מחזיר HTML מוכן במקום להריץ PHP מחדש',
+      'הפעל Cloudflare — ה-CDN שלהם מקצר TTFB משמעותית',
+      'מעל 1.5s: שקול שדרוג ל-VPS / Cloud Hosting (Cloudways, SiteGround)',
+      'בדוק שאין Plugins כבדים שמבצעים Database queries בכל טעינה',
+    ]
+  },
+  perf_fcp: {
+    label: 'FCP איטי (First Contentful Paint)',
+    steps: [
+      'FCP = מתי הגולש רואה משהו ראשון על המסך',
+      'הוסף preload לפונט ולתמונת Hero: <code>&lt;link rel="preload"&gt;</code>',
+      'הסר CSS/JS בלתי הכרחי מה-<head> — השתמש ב-defer/async',
+      'הפעל Critical CSS ב-WP Rocket: File Optimization → Optimize CSS Delivery',
+      'בדוק שה-Web Font לא חוסם רינדור — הוסף <code>font-display: swap</code>',
+    ]
+  },
+  perf_requests: {
+    label: 'יותר מדי בקשות HTTP',
+    steps: [
+      'מחק תוספים שאינם בשימוש — כל תוסף מוסיף JS/CSS',
+      'הפעל CSS/JS Minify ו-Concatenation ב-WP Rocket / LiteSpeed',
+      'טען Google Fonts מקומית (GDPR + מהירות): תוסף OMGF',
+      'בדוק F12 → Network → סנן לפי Type כדי לראות מה מוסיף הכי הרבה בקשות',
+    ]
+  },
+  perf_weight: {
+    label: 'עמוד כבד מדי',
+    steps: [
+      'דחוס תמונות: כל תמונה ל-WebP ומתחת ל-150KB — תוסף Smush / ShortPixel',
+      'הפעל Lazy Load לתמונות שמתחת לקפל',
+      'בדוק F12 → Network → סנן "Img" לפי גודל וטפל בגדולות',
+      'הסר Sliders/Videos כבדים — שקול תמונה סטטית במקום',
+    ]
+  },
+  perf_render_blocking: {
+    label: 'משאבי Render-Blocking',
+    steps: [
+      'Scripts ו-CSS ב-<head> מעכבים הצגת הדף עד שנטענים',
+      'הוסף <code>defer</code> או <code>async</code> לתגי <code>&lt;script&gt;</code>',
+      'ב-WP Rocket: File Optimization → Load JS Deferred',
+      'ב-LiteSpeed Cache: Page Optimization → JS Defer',
+      'בדוק PageSpeed Insights לרשימה מדויקת של המשאבים החוסמים',
+    ]
+  },
+
+  // אבטחה
+  security_headers: {
+    label: 'חסרים Security Headers',
+    steps: [
+      'הוסף ל-<code>.htaccess</code> (Apache) או Nginx config',
+      '<b>HSTS</b>: <code>Header always set Strict-Transport-Security "max-age=31536000"</code>',
+      '<b>X-Frame-Options</b>: <code>Header always set X-Frame-Options "SAMEORIGIN"</code>',
+      '<b>X-Content-Type-Options</b>: <code>Header always set X-Content-Type-Options "nosniff"</code>',
+      'או: תוסף Headers Security Advanced HSTS WP מוסיף הכל אוטומטית',
+      'בדוק ב: securityheaders.com',
+    ]
+  },
+  https_no_redirect: {
+    label: 'HTTP לא מנותב ל-HTTPS',
+    steps: [
+      'הוסף ל-<code>.htaccess</code>: <code>RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]</code>',
+      'ב-Cloudflare: SSL/TLS → Edge Certificates → Always Use HTTPS → On',
+      'ב-cPanel: Domains → Redirects → Permanent Redirect',
+      'ב-Nginx: הוסף redirect בבלוק server של port 80',
+    ]
+  },
+
+  // Schema
+  schema_missing: {
+    label: 'חסר Schema Markup',
+    steps: [
+      'Schema עוזר לגוגל להציג Rich Results (כוכבים, FAQ, מחיר)',
+      'התקן Yoast SEO — מוסיף Schema אוטומטי לרוב סוגי העמודים',
+      'לעסק מקומי: הוסף LocalBusiness Schema עם שם/כתובת/טלפון/שעות',
+      'לחנות: הוסף Product Schema עם מחיר ודירוג',
+      'בדוק: schema.org/validator או Google Rich Results Test',
+    ]
+  },
+
+  // Analytics
+  analytics_missing: {
+    label: 'חסר Google Analytics / GTM',
+    steps: [
+      'התקן Google Tag Manager ותוסף GTM4WP',
+      'או: הוסף ישירות GA4 דרך WordPress → Appearance → Theme Editor',
+      'ב-Elementor: Settings → Integrations → Google Analytics',
+      'בדוק שה-Tag Manager Container מפורסם (Published)',
+    ]
+  },
+
+  // תוכן
+  copyright_outdated: {
+    label: 'Copyright לא מעודכן',
+    steps: [
+      'ב-Elementor: ערוך את ה-Footer ועדכן את שנת ה-Copyright',
+      'פתרון אוטומטי — הוסף ל-functions.php: <code>add_filter(\'the_year\', fn()=>date(\'Y\'));</code>',
+      'ב-Divi/Astra/Beaver: Footer Customizer → Copyright Text',
+      'שקול להשתמש ב-PHP: <code>&lt;?php echo date("Y"); ?&gt;</code>',
+    ]
+  },
+  thin_content: {
+    label: 'תוכן דק',
+    steps: [
+      'גוגל מעדיף עמודים עם תוכן מקיף ומועיל (300+ מילים)',
+      'הוסף תיאור מורחב לשירותים/מוצרים',
+      'הוסף FAQ section לעמוד — מוסיף מילים ושאלות רלוונטיות',
+      'אל תמחק עמודים — אם יש מעט תוכן, הוסף עליהם',
+      'בדוק שאין עמודים כפולים שמפצלים את התוכן',
+    ]
+  },
+  external_broken_links: {
+    label: 'קישורים חיצוניים שבורים',
+    steps: [
+      'לחץ על כל קישור חיצוני ידנית לבדיקה',
+      'אתרים חיצוניים נסגרים/משנים URL — עדכן או הסר את הקישור',
+      'השתמש ב-Broken Link Checker (תוסף WP) לסריקה מלאה',
+      'שקול להוסיף <code>target="_blank" rel="noopener noreferrer"</code> לקישורים חיצוניים',
+    ]
+  },
+
+  // Mobile UX
+  mobile_touch_targets: {
+    label: 'כפתורים קטנים מדי במובייל',
+    steps: [
+      'גודל מינימלי מומלץ של אלמנט לחיץ: 44×44px (Google/Apple)',
+      'ב-CSS: הוסף <code>min-height: 44px; min-width: 44px;</code> לכפתורים',
+      'ב-Elementor: הגדל Padding של כפתורים במובייל',
+      'בדוק Responsive Mode ב-Elementor/Chrome DevTools לסימולציית מובייל',
+    ]
+  },
+  mobile_font_size: {
+    label: 'גופן קטן מדי במובייל',
+    steps: [
+      'גודל גופן מינימלי מומלץ: 16px לטקסט ראשי (14px מינימום)',
+      'ב-Elementor: בחר Mobile view → שנה גודל גופן לכל Section',
+      'ב-Customizer: Typography → Body Font Size → Mobile',
+      'בדוק גם ב-CSS: <code>@media (max-width: 768px) { body { font-size: 16px; } }</code>',
+    ]
+  },
+  mobile_hscroll: {
+    label: 'גלילה אופקית במובייל',
+    steps: [
+      'אלמנט כלשהו רחב יותר מהמסך — גורם לגלילה ימינה/שמאלה',
+      'הוסף ל-CSS: <code>body { overflow-x: hidden; }</code> כפתרון מהיר',
+      'בדוק ב-Chrome DevTools: Toggle Device Mode → בחפש אלמנטים עם overflow',
+      'סיבות נפוצות: טבלה, תמונה ללא max-width, iframe, Slider',
+      'פתרון נכון: הוסף <code>max-width: 100%;</code> לאלמנטים בעייתיים',
+    ]
+  },
+
+  // WooCommerce
+  woo_page_broken: {
+    label: 'עמוד WooCommerce שבור',
+    steps: [
+      'ב-WooCommerce → Settings → Advanced → Page Setup — ודא שהעמודים מוגדרים',
+      'ב-Pages: ודא ש-Cart, Checkout ו-My Account פורסמו',
+      'ב-Permalinks: Settings → Permalinks → שמור מחדש (מתקן בעיות URL)',
+      'בדוק שלא מחקת את העמודים בטעות — ניתן לצור מחדש מ-WooCommerce → Status → Tools',
+    ]
+  },
+  woo_add_to_cart: {
+    label: 'הוספה לעגלה לא עובדת',
+    steps: [
+      'פתח עמוד מוצר ידנית ולחץ "הוסף לעגלה" — מה מוצג?',
+      'בדוק Console (F12) לשגיאת JS — קונפליקט jQuery נפוץ',
+      'בדוק שה-Ajax URL תקין: WooCommerce → Status → Logs',
+      'כבה תוסף Cache זמנית ובדוק — Cache יכול לשבש Ajax',
+      'בדוק שה-Nonce של WooCommerce לא פג תוקף (בעיה עם aggressive cache)',
+    ]
+  },
+
+  // Exposed Files & Security
+  exposed_file: {
+    label: '⛔ קובץ רגיש חשוף',
+    steps: [
+      '<b>דחוף!</b> — מחק או הגן מיידית על הקובץ',
+      'הוסף ל-<code>.htaccess</code>: <code>&lt;Files .env&gt; Deny from all &lt;/Files&gt;</code>',
+      'מחק קבצי backup (.bak, .old) מהשרת לחלוטין',
+      'ל-phpinfo.php: מחק את הקובץ — אין לו מקום על שרת production',
+      'לאחר תיקון: בדוק שוב ישירות בדפדפן שהקובץ מחזיר 403/404',
+    ]
+  },
+  directory_listing: {
+    label: '⛔ Directory Listing פתוח',
+    steps: [
+      '<b>דחוף!</b> — כל קבצי התיקייה גלויים לכל אחד',
+      'הוסף ל-<code>.htaccess</code>: <code>Options -Indexes</code>',
+      'ב-Nginx: הסר <code>autoindex on</code> מה-config',
+      'ב-cPanel: File Manager → עבור לתיקייה → צור קובץ index.php ריק',
+      'לאחר תיקון: בדוק שהכתובת מחזירה 403 ולא רשימת קבצים',
+    ]
+  },
+  robots_missing: {
+    label: 'חסר robots.txt',
+    steps: [
+      'ב-Yoast SEO: Settings → Site Features → robots.txt → Edit',
+      'ב-Rank Math: General Settings → Edit robots.txt',
+      'או: צור קובץ robots.txt ב-root האתר עם הכתובת הבאה לפחות:',
+      '<code>User-agent: *\\nDisallow:\\nSitemap: https://example.com/sitemap.xml</code>',
+    ]
+  },
+  robots_block_all: {
+    label: '⛔ robots.txt חוסם גוגל',
+    steps: [
+      '<b>קריטי!</b> — הגדרה זו מונעת מגוגל לסרוק ולאנדקס את האתר',
+      'ערוך את robots.txt ושנה <code>Disallow: /</code> ל-<code>Disallow:</code> (שורה ריקה = מותר הכל)',
+      'ב-WordPress → Settings → Reading: ודא ש-"Discourage search engines" כבוי',
+      'לאחר תיקון: בקש Crawl ב-Google Search Console',
+    ]
+  },
+  robots_no_sitemap: {
+    label: 'robots.txt ללא Sitemap',
+    steps: [
+      'הוסף שורה ל-robots.txt: <code>Sitemap: https://yoursite.com/sitemap_index.xml</code>',
+      'ב-Yoast SEO: robots.txt נוצר אוטומטית עם שורת Sitemap',
+      'בדוק שה-Sitemap נגיש: פתח את הכתובת ישירות בדפדפן',
+    ]
+  },
+
   popup_broken: {
     label: 'Popup / Lightbox לא נפתח',
     steps: [
