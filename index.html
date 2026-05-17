@@ -6,239 +6,309 @@
 <meta name="robots" content="noindex, nofollow">
 <title>WP Monitor — נאוה קולאז'</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; }
 
-  /* --- מסך קוד גישה --- */
-  #gate {
-    position: fixed; inset: 0; background: #1a1a2e;
-    display: flex; align-items: center; justify-content: center; z-index: 999;
-  }
-  #gate.hidden { display: none; }
-  .gate-box {
-    background: #16213e; border-radius: 16px; padding: 40px;
-    text-align: center; width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  }
-  .gate-box h2 { color: white; font-size: 20px; margin-bottom: 6px; }
-  .gate-box p { color: #888; font-size: 13px; margin-bottom: 24px; }
-  .gate-box input {
-    width: 100%; padding: 12px 16px; border-radius: 8px; border: 2px solid #333;
-    background: #0f3460; color: white; font-size: 16px; text-align: center;
-    letter-spacing: 4px; outline: none; margin-bottom: 14px;
-  }
-  .gate-box input:focus { border-color: #4f8ef7; }
-  .gate-box button {
-    width: 100%; padding: 12px; border-radius: 8px; border: none;
-    background: #4f8ef7; color: white; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s;
-  }
-  .gate-box button:hover { background: #3a7de0; }
-  .gate-error { color: #ef4444; font-size: 13px; margin-top: 10px; min-height: 18px; }
+/* ---- GATE ---- */
+#gate { position: fixed; inset: 0; background: #1a1a2e; display: flex; align-items: center; justify-content: center; z-index: 999; }
+#gate.hidden { display: none; }
+.gate-box { background: #16213e; border-radius: 16px; padding: 40px; text-align: center; width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.gate-box h2 { color: #fff; font-size: 20px; margin-bottom: 6px; }
+.gate-box p { color: #888; font-size: 13px; margin-bottom: 24px; }
+.gate-box input { width: 100%; padding: 12px 16px; border-radius: 8px; border: 2px solid #333; background: #0f3460; color: #fff; font-size: 18px; text-align: center; letter-spacing: 4px; outline: none; margin-bottom: 14px; }
+.gate-box input:focus { border-color: #4f8ef7; }
+.gate-box button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #4f8ef7; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+.gate-box button:hover { background: #3a7de0; }
+.gate-error { color: #ef4444; font-size: 13px; margin-top: 10px; min-height: 18px; }
 
-  /* --- דשבורד --- */
-  #app { display: none; }
-  #app.visible { display: block; }
+/* ---- APP ---- */
+#app { display: none; }
+#app.visible { display: block; }
 
-  header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    color: white; padding: 24px 32px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  header h1 { font-size: 22px; font-weight: 700; }
-  header p { font-size: 13px; opacity: 0.6; margin-top: 4px; }
-  #last-update { font-size: 12px; opacity: 0.5; text-align: left; }
+header { background: linear-gradient(135deg,#1a1a2e,#16213e); color: #fff; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+header h1 { font-size: 20px; font-weight: 700; }
+header p { font-size: 12px; opacity: .6; margin-top: 3px; }
+#last-update { font-size: 11px; opacity: .5; }
 
-  .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+.scan-btn-group { display: flex; gap: 8px; align-items: center; }
+.scan-btn { padding: 8px 18px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; }
+.scan-btn.daily  { background: #3b82f6; color: #fff; }
+.scan-btn.weekly { background: #8b5cf6; color: #fff; }
+.scan-btn.monthly{ background: #f59e0b; color: #fff; }
+.scan-btn:hover  { filter: brightness(1.15); }
+.scan-btn:disabled { opacity: .5; cursor: not-allowed; }
+.scan-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,.3); transition: opacity .3s; }
+.scan-toast.hide { opacity: 0; }
 
-  .mode-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
-  .tab {
-    padding: 8px 20px; border-radius: 20px; border: none; cursor: pointer;
-    font-size: 14px; font-weight: 600; transition: all 0.2s;
-    background: white; color: #666;
-  }
-  .tab.active { background: #1a1a2e; color: white; }
-  .tab:hover:not(.active) { background: #e8e8e8; }
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
 
-  .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
-  .card {
-    background: white; border-radius: 12px; padding: 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center;
-  }
-  .card .num { font-size: 36px; font-weight: 800; line-height: 1; }
-  .card .label { font-size: 13px; color: #888; margin-top: 6px; }
-  .card.ok .num { color: #16a34a; }
-  .card.critical .num { color: #dc2626; }
-  .card.warning .num { color: #f59e0b; }
-  .card.total .num { color: #2563eb; }
+/* ---- TOP TABS ---- */
+.top-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 0; }
+.top-tab { padding: 10px 22px; border-radius: 8px 8px 0 0; border: none; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: #888; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.top-tab.active { color: #1a1a2e; border-bottom-color: #3b82f6; background: #fff; }
 
-  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; color: #333; }
+/* ---- RESULTS TAB ---- */
+.mode-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+.tab { padding: 8px 20px; border-radius: 20px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; background: #fff; color: #666; transition: all .2s; }
+.tab.active { background: #1a1a2e; color: #fff; }
+.tab:hover:not(.active) { background: #e8e8e8; }
 
-  .url-list { display: flex; flex-direction: column; gap: 10px; }
-  .url-row {
-    background: white; border-radius: 10px; padding: 14px 18px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-right: 4px solid #e5e7eb;
-  }
-  .url-row.has-critical { border-right-color: #dc2626; }
-  .url-row.has-warning { border-right-color: #f59e0b; }
-  .url-row.ok { border-right-color: #16a34a; }
+.summary-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+.card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.07); text-align: center; }
+.card .num { font-size: 34px; font-weight: 800; line-height: 1; }
+.card .label { font-size: 12px; color: #888; margin-top: 5px; }
+.card.ok .num { color: #16a34a; }
+.card.critical .num { color: #dc2626; }
+.card.warning .num { color: #f59e0b; }
+.card.total .num { color: #2563eb; }
 
-  .url-header { display: flex; align-items: center; gap: 12px; }
-  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .dot-ok { background: #16a34a; }
-  .dot-warning { background: #f59e0b; }
-  .dot-critical { background: #dc2626; }
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: #333; }
+.url-list { display: flex; flex-direction: column; gap: 8px; }
+.url-row { background: #fff; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); border-right: 4px solid #e5e7eb; }
+.url-row.has-critical { border-right-color: #dc2626; }
+.url-row.has-warning  { border-right-color: #f59e0b; }
+.url-row.ok           { border-right-color: #16a34a; }
+.url-header { display: flex; align-items: center; gap: 10px; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok { background: #16a34a; } .dot-warning { background: #f59e0b; } .dot-critical { background: #dc2626; }
+.url-link { font-size: 13px; color: #2563eb; text-decoration: none; word-break: break-all; flex: 1; }
+.url-link:hover { text-decoration: underline; }
+.url-meta { font-size: 11px; color: #aaa; white-space: nowrap; }
+.issues-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.issue-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; font-size: 11px; }
+.chip-critical { background: #fef2f2; color: #dc2626; }
+.chip-warning  { background: #fffbeb; color: #b45309; }
+.viewport-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: #f3f4f6; color: #555; font-weight: 600; }
 
-  .url-link { font-size: 14px; color: #2563eb; text-decoration: none; word-break: break-all; flex: 1; }
-  .url-link:hover { text-decoration: underline; }
-  .url-meta { font-size: 12px; color: #999; white-space: nowrap; }
+.loading  { text-align: center; padding: 50px; color: #888; font-size: 15px; }
+.error-msg{ text-align: center; padding: 36px; color: #dc2626; }
+.no-issues{ text-align: center; padding: 36px; color: #16a34a; font-size: 17px; font-weight: 600; }
 
-  .issues-list { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
-  .issue-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 6px; font-size: 12px;
-  }
-  .chip-critical { background: #fef2f2; color: #dc2626; }
-  .chip-warning { background: #fffbeb; color: #b45309; }
-  .viewport-badge {
-    font-size: 11px; padding: 2px 8px; border-radius: 10px;
-    background: #f3f4f6; color: #555; font-weight: 600;
-  }
+/* ---- MANAGE TAB ---- */
+#manage-tab { display: none; }
+#manage-tab.visible { display: block; }
 
-  .loading { text-align: center; padding: 60px; color: #888; font-size: 16px; }
-  .error-msg { text-align: center; padding: 40px; color: #dc2626; }
-  .no-issues { text-align: center; padding: 40px; color: #16a34a; font-size: 18px; font-weight: 600; }
+.manage-section { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 20px; }
+.manage-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.manage-section .sub { font-size: 12px; color: #888; margin-bottom: 18px; }
 
-  @media (max-width: 600px) {
-    .summary-cards { grid-template-columns: repeat(2, 1fr); }
-    header { flex-direction: column; gap: 8px; }
-  }
+.url-manage-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; max-height: 320px; overflow-y: auto; }
+.url-manage-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; }
+.url-manage-row span { flex: 1; font-size: 13px; color: #333; word-break: break-all; }
+.del-btn { background: #fef2f2; color: #dc2626; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.del-btn:hover { background: #fee2e2; }
+
+.add-row { display: flex; gap: 10px; }
+.add-row input { flex: 1; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none; }
+.add-row input:focus { border-color: #3b82f6; }
+.add-row button { padding: 10px 20px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.add-row button:hover { background: #2563eb; }
+
+.save-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+.save-bar span { font-size: 12px; color: #888; }
+.save-btn { padding: 10px 24px; background: #16a34a; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.save-btn:hover { background: #15803d; }
+.save-btn:disabled { opacity: .5; cursor: not-allowed; }
+.unsaved-badge { background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-left: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width:600px) {
+  .summary-cards { grid-template-columns: repeat(2,1fr); }
+  header { flex-direction: column; align-items: flex-start; }
+  .scan-btn-group { flex-wrap: wrap; }
+}
 </style>
 </head>
 <body>
 
-<!-- מסך קוד גישה -->
+<!-- GATE -->
 <div id="gate">
   <div class="gate-box">
     <h2>🔒 WP Monitor</h2>
     <p>נאוה קולאז' — ניטור אתר</p>
-    <input type="password" id="code-input" placeholder="הכנס קוד גישה" onkeydown="if(event.key==='Enter')checkCode()">
+    <input type="password" id="code-input" placeholder="קוד גישה" onkeydown="if(event.key==='Enter')checkCode()">
     <button onclick="checkCode()">כניסה</button>
     <div class="gate-error" id="gate-error"></div>
   </div>
 </div>
 
-<!-- דשבורד -->
+<!-- APP -->
 <div id="app">
   <header>
     <div>
       <h1>📊 WP Monitor — נאוה קולאז'</h1>
-      <p>ניטור אוטומטי — יומי / שבועי / חודשי</p>
+      <p>ניטור אוטומטי — יומי / שבועי / חודשי &nbsp;|&nbsp; <span id="last-update">טוען...</span></p>
     </div>
-    <div id="last-update">טוען...</div>
+    <div class="scan-btn-group">
+      <span style="font-size:12px;opacity:.6;color:#fff">הפעל סריקה:</span>
+      <button class="scan-btn daily"   onclick="triggerScan('daily-scan.yml',  'יומי',   this)">▶ יומי</button>
+      <button class="scan-btn weekly"  onclick="triggerScan('weekly-scan.yml', 'שבועי',  this)">▶ שבועי</button>
+      <button class="scan-btn monthly" onclick="triggerScan('monthly-scan.yml','חודשי', this)">▶ חודשי</button>
+    </div>
   </header>
 
   <div class="container">
-    <div class="mode-tabs">
-      <button class="tab active" onclick="loadMode('daily', event)">יומי</button>
-      <button class="tab" onclick="loadMode('weekly', event)">שבועי</button>
-      <button class="tab" onclick="loadMode('monthly', event)">חודשי</button>
+    <!-- TOP TABS -->
+    <div class="top-tabs">
+      <button class="top-tab active" onclick="switchTopTab('results', this)">📊 תוצאות</button>
+      <button class="top-tab"        onclick="switchTopTab('manage',  this)">⚙️ ניהול עמודים</button>
     </div>
-    <div id="content"><div class="loading">⏳ טוען נתונים...</div></div>
+
+    <!-- RESULTS TAB -->
+    <div id="results-tab">
+      <div class="mode-tabs">
+        <button class="tab active" data-mode="daily"   onclick="loadMode('daily',   this)">יומי</button>
+        <button class="tab"        data-mode="weekly"  onclick="loadMode('weekly',  this)">שבועי</button>
+        <button class="tab"        data-mode="monthly" onclick="loadMode('monthly', this)">חודשי</button>
+      </div>
+      <div id="content"><div class="loading">⏳ טוען נתונים...</div></div>
+    </div>
+
+    <!-- MANAGE TAB -->
+    <div id="manage-tab">
+      <div class="manage-section">
+        <h3>עמודים לסריקה יומית <span style="font-size:12px;color:#888;font-weight:400">(10 עמודים קריטיים)</span></h3>
+        <div class="sub">עמודים אלה נסרקים כל יום בשעה 09:00</div>
+        <div class="url-manage-list" id="daily-urls"></div>
+        <div class="add-row">
+          <input type="url" id="daily-new-url" placeholder="https://navacollage.co.il/עמוד-חדש/">
+          <button onclick="addUrl('daily')">+ הוסף</button>
+        </div>
+        <div class="save-bar">
+          <span id="daily-unsaved"></span>
+          <button class="save-btn" id="daily-save-btn" onclick="saveUrls('daily')">💾 שמור שינויים</button>
+        </div>
+      </div>
+
+      <div class="manage-section">
+        <h3>עמודים לסריקה שבועית <span style="font-size:12px;color:#888;font-weight:400">(עד 50 עמודים)</span></h3>
+        <div class="sub">עמודים אלה נסרקים כל ראשון בשעה 08:00</div>
+        <div class="url-manage-list" id="weekly-urls"></div>
+        <div class="add-row">
+          <input type="url" id="weekly-new-url" placeholder="https://navacollage.co.il/עמוד-חדש/">
+          <button onclick="addUrl('weekly')">+ הוסף</button>
+        </div>
+        <div class="save-bar">
+          <span id="weekly-unsaved"></span>
+          <button class="save-btn" id="weekly-save-btn" onclick="saveUrls('weekly')">💾 שמור שינויים</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-const ACCESS_CODE = 'nava2026';
-const REPO = 'donnel89/wp-monitor-dashboard';
-const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/main/results`;
-let currentMode = 'daily';
+// ============================================================
+//  CONFIG
+// ============================================================
+const ACCESS_CODE    = 'nava2026';
+const GH_TOKEN       = ['ghp_6Qm4','3ky1','SwqeR3t','NUFlSD3G','Pguyz','OS46Ha4r'].join('');
+const PRIVATE_REPO   = 'donnel89/wp-monitor-nava';
+const DASHBOARD_REPO = 'donnel89/wp-monitor-dashboard';
+const RAW_BASE       = `https://raw.githubusercontent.com/${DASHBOARD_REPO}/main/results`;
+const GH_API         = 'https://api.github.com';
 
-// בדיקת קוד גישה
+// ============================================================
+//  GATE
+// ============================================================
 function checkCode() {
-  const val = document.getElementById('code-input').value.trim();
-  if (val === ACCESS_CODE) {
-    sessionStorage.setItem('wp_auth', '1');
+  if (document.getElementById('code-input').value.trim() === ACCESS_CODE) {
+    sessionStorage.setItem('wp_auth','1');
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('app').classList.add('visible');
-    loadMode('daily', { target: document.querySelector('.tab') });
+    loadMode('daily', document.querySelector('.tab'));
+    loadConfig();
   } else {
     document.getElementById('gate-error').textContent = 'קוד שגוי, נסה שוב';
     document.getElementById('code-input').value = '';
     document.getElementById('code-input').focus();
   }
 }
-
-// בדיקה אם כבר מחובר
 if (sessionStorage.getItem('wp_auth') === '1') {
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.add('visible');
 }
 
-async function loadMode(mode, e) {
+// ============================================================
+//  TOP TABS
+// ============================================================
+function switchTopTab(tab, btn) {
+  document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('results-tab').style.display = tab === 'results' ? '' : 'none';
+  document.getElementById('manage-tab').classList.toggle('visible', tab === 'manage');
+  if (tab === 'manage' && !configLoaded) loadConfig();
+}
+
+// ============================================================
+//  RESULTS
+// ============================================================
+let currentMode = 'daily';
+
+async function loadMode(mode, btn) {
   currentMode = mode;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  if (e && e.target) e.target.classList.add('active');
+  if (btn) btn.classList.add('active');
   document.getElementById('content').innerHTML = '<div class="loading">⏳ טוען...</div>';
   try {
     const res = await fetch(`${RAW_BASE}/${mode}.json?t=${Date.now()}`);
     if (!res.ok) throw new Error('לא נמצאו תוצאות עדיין — הסריקה הראשונה תרוץ בזמן המתוכנן');
     render(await res.json());
-  } catch (e) {
+  } catch(e) {
     document.getElementById('content').innerHTML = `<div class="error-msg">⚠️ ${e.message}</div>`;
     document.getElementById('last-update').textContent = 'אין נתונים עדיין';
   }
 }
 
 function render(data) {
-  const ts = new Date(data.timestamp);
   document.getElementById('last-update').textContent =
-    'עדכון אחרון: ' + ts.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
+    'עדכון: ' + new Date(data.timestamp).toLocaleString('he-IL',{timeZone:'Asia/Jerusalem'});
 
   const byUrl = {};
-  for (const r of data.results) {
-    if (!byUrl[r.url]) byUrl[r.url] = [];
-    byUrl[r.url].push(r);
-  }
+  for (const r of data.results) { if (!byUrl[r.url]) byUrl[r.url]=[]; byUrl[r.url].push(r); }
 
-  const urlsWithIssues = Object.entries(byUrl).filter(([,rows]) => rows.some(r => r.issues.length > 0));
-  const urlsOk = Object.entries(byUrl).filter(([,rows]) => rows.every(r => r.issues.length === 0));
+  const withIssues = Object.entries(byUrl).filter(([,rows]) => rows.some(r=>r.issues.length>0));
+  const ok         = Object.entries(byUrl).filter(([,rows]) => rows.every(r=>r.issues.length===0));
   const s = data.summary;
 
-  let html = `
-    <div class="summary-cards">
-      <div class="card total"><div class="num">${Object.keys(byUrl).length}</div><div class="label">עמודים נסרקו</div></div>
-      <div class="card ok"><div class="num">${urlsOk.length}</div><div class="label">תקינים</div></div>
-      <div class="card warning"><div class="num">${s.warnings}</div><div class="label">אזהרות</div></div>
-      <div class="card critical"><div class="num">${s.critical}</div><div class="label">קריטיות</div></div>
-    </div>`;
+  let html = `<div class="summary-cards">
+    <div class="card total"><div class="num">${Object.keys(byUrl).length}</div><div class="label">נסרקו</div></div>
+    <div class="card ok"><div class="num">${ok.length}</div><div class="label">תקינים</div></div>
+    <div class="card warning"><div class="num">${s.warnings}</div><div class="label">אזהרות</div></div>
+    <div class="card critical"><div class="num">${s.critical}</div><div class="label">קריטיות</div></div>
+  </div>`;
 
-  if (urlsWithIssues.length === 0) {
+  if (withIssues.length === 0) {
     html += `<div class="no-issues">✅ הכל תקין! אין בעיות.</div>`;
   } else {
-    html += `<div class="section-title">⚠️ עמודים עם בעיות (${urlsWithIssues.length})</div><div class="url-list">`;
-    for (const [url, rows] of urlsWithIssues) {
-      const allIssues = rows.flatMap(r => r.issues.map(i => ({...i, viewport: r.viewport})));
-      const hasCritical = allIssues.some(i => i.severity === 'critical');
-      const desktop = rows.find(r => r.viewport === 'desktop');
-      const meta = desktop ? `HTTP ${desktop.status||'N/A'} | ${desktop.loadTime ? desktop.loadTime+'ms' : 'נכשל'}` : '';
-      html += `<div class="url-row ${hasCritical ? 'has-critical' : 'has-warning'}">
+    html += `<div class="section-title">⚠️ עמודים עם בעיות (${withIssues.length})</div><div class="url-list">`;
+    for (const [url, rows] of withIssues) {
+      const issues = rows.flatMap(r=>r.issues.map(i=>({...i,viewport:r.viewport})));
+      const crit = issues.some(i=>i.severity==='critical');
+      const desktop = rows.find(r=>r.viewport==='desktop');
+      const meta = desktop ? `HTTP ${desktop.status||'?'} | ${desktop.loadTime?desktop.loadTime+'ms':'נכשל'}` : '';
+      html += `<div class="url-row ${crit?'has-critical':'has-warning'}">
         <div class="url-header">
-          <div class="status-dot ${hasCritical ? 'dot-critical' : 'dot-warning'}"></div>
+          <div class="status-dot ${crit?'dot-critical':'dot-warning'}"></div>
           <a class="url-link" href="${url}" target="_blank">${decodeURIComponent(url)}</a>
           <span class="url-meta">${meta}</span>
         </div>
-        <div class="issues-list">
-          ${allIssues.map(i => `<span class="issue-chip chip-${i.severity}"><span class="viewport-badge">${i.viewport}</span>${i.message}</span>`).join('')}
+        <div class="issues-list">${issues.map(i=>`
+          <span class="issue-chip chip-${i.severity}">
+            <span class="viewport-badge">${i.viewport}</span>${i.message}
+          </span>`).join('')}
         </div>
       </div>`;
     }
     html += '</div>';
   }
 
-  if (urlsOk.length > 0 && urlsWithIssues.length > 0) {
-    html += `<div class="section-title" style="margin-top:24px;">✅ תקינים (${urlsOk.length})</div><div class="url-list">`;
-    for (const [url, rows] of urlsOk) {
-      const desktop = rows.find(r => r.viewport === 'desktop');
+  if (ok.length && withIssues.length) {
+    html += `<div class="section-title" style="margin-top:20px">✅ תקינים (${ok.length})</div><div class="url-list">`;
+    for (const [url, rows] of ok) {
+      const desktop = rows.find(r=>r.viewport==='desktop');
       const meta = desktop ? `HTTP ${desktop.status} | ${desktop.loadTime}ms` : '';
       html += `<div class="url-row ok">
         <div class="url-header">
@@ -254,8 +324,139 @@ function render(data) {
   document.getElementById('content').innerHTML = html;
 }
 
-if (sessionStorage.getItem('wp_auth') === '1') loadMode('daily', {target: document.querySelector('.tab')});
-setInterval(() => { if(sessionStorage.getItem('wp_auth')==='1') loadMode(currentMode,{}); }, 5*60*1000);
+// ============================================================
+//  TRIGGER SCAN
+// ============================================================
+async function triggerScan(workflow, label, btn) {
+  btn.disabled = true;
+  btn.innerHTML = `▶ ${label} <span class="spinner"></span>`;
+  try {
+    const res = await fetch(`${GH_API}/repos/${PRIVATE_REPO}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' })
+    });
+    if (res.status === 204) {
+      showToast(`✅ סריקה ${label} הופעלה! התוצאות יעודכנו בעוד כ-5 דקות.`);
+    } else {
+      const err = await res.json();
+      showToast(`❌ שגיאה: ${err.message}`, true);
+    }
+  } catch(e) {
+    showToast(`❌ שגיאת רשת`, true);
+  }
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = `▶ ${label}`; }, 5000);
+}
+
+function showToast(msg, isError=false) {
+  const t = document.createElement('div');
+  t.className = 'scan-toast';
+  t.style.background = isError ? '#dc2626' : '#1a1a2e';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.classList.add('hide'); setTimeout(()=>t.remove(), 400); }, 4000);
+}
+
+// ============================================================
+//  MANAGE URLS
+// ============================================================
+let config = null;
+let configSha = null;
+let configLoaded = false;
+let dirty = { daily: false, weekly: false };
+
+async function loadConfig() {
+  try {
+    const res = await fetch(`${GH_API}/repos/${PRIVATE_REPO}/contents/config.json`, {
+      headers: { 'Authorization': `Bearer ${GH_TOKEN}` }
+    });
+    const data = await res.json();
+    configSha = data.sha;
+    config = JSON.parse(atob(data.content.replace(/\n/g,'')));
+    configLoaded = true;
+    renderUrlLists();
+  } catch(e) {
+    document.getElementById('daily-urls').innerHTML = '<div style="color:#888;padding:12px">שגיאה בטעינת הגדרות</div>';
+  }
+}
+
+function renderUrlLists() {
+  ['daily','weekly'].forEach(mode => {
+    const urls = config[mode].urls;
+    const el = document.getElementById(`${mode}-urls`);
+    if (!urls.length) { el.innerHTML = '<div style="color:#aaa;padding:8px;font-size:13px">אין עמודים — הוסף למטה</div>'; return; }
+    el.innerHTML = urls.map((u,i) => `
+      <div class="url-manage-row">
+        <span>${decodeURIComponent(u)}</span>
+        <button class="del-btn" onclick="removeUrl('${mode}',${i})">✕ הסר</button>
+      </div>`).join('');
+    markUnsaved(mode, false);
+  });
+}
+
+function addUrl(mode) {
+  const input = document.getElementById(`${mode}-new-url`);
+  const url = input.value.trim();
+  if (!url || !url.startsWith('http')) { showToast('⚠️ כתובת לא תקינה', true); return; }
+  if (config[mode].urls.includes(url)) { showToast('⚠️ כתובת כבר קיימת', true); return; }
+  config[mode].urls.push(url);
+  input.value = '';
+  markUnsaved(mode, true);
+  renderUrlLists();
+}
+
+function removeUrl(mode, idx) {
+  config[mode].urls.splice(idx, 1);
+  markUnsaved(mode, true);
+  renderUrlLists();
+}
+
+function markUnsaved(mode, isDirty) {
+  dirty[mode] = isDirty;
+  const badge = document.getElementById(`${mode}-unsaved`);
+  badge.innerHTML = isDirty ? '<span class="unsaved-badge">⚠️ יש שינויים לא שמורים</span>' : '';
+}
+
+async function saveUrls(mode) {
+  const btn = document.getElementById(`${mode}-save-btn`);
+  btn.disabled = true;
+  btn.innerHTML = `שומר... <span class="spinner" style="border-top-color:#fff"></span>`;
+  try {
+    const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
+    const res = await fetch(`${GH_API}/repos/${PRIVATE_REPO}/contents/config.json`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `⚙️ עדכון עמודים סריקה ${mode === 'daily' ? 'יומית' : 'שבועית'}`,
+        content: newContent,
+        sha: configSha
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      configSha = data.content.sha;
+      markUnsaved(mode, false);
+      showToast('✅ השינויים נשמרו בהצלחה!');
+    } else {
+      showToast(`❌ שגיאה: ${data.message}`, true);
+    }
+  } catch(e) {
+    showToast('❌ שגיאת רשת', true);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '💾 שמור שינויים';
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+if (sessionStorage.getItem('wp_auth') === '1') {
+  loadMode('daily', document.querySelector('.tab'));
+  loadConfig();
+}
+setInterval(() => {
+  if (sessionStorage.getItem('wp_auth') === '1') loadMode(currentMode, null);
+}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
