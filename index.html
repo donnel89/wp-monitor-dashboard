@@ -1128,6 +1128,60 @@ const FIX_GUIDE = {
       'תוסף WP Hardening / Hide My WP Ghost מסיר זאת אוטומטית',
       'גם ודא שגרסת WordPress מעודכנת תמיד — חשוב לאבטחה',
     ]
+  },
+  form_no_submit: {
+    label: 'טופס ללא כפתור שליחה',
+    steps: [
+      'פתח את הטופס בעורך ובדוק שכפתור ה-Submit גלוי ולא מוסתר ב-CSS',
+      'ב-Contact Form 7: ודא שה-shortcode [submit] קיים בתוכן הטופס',
+      'ב-Elementor Forms: בדוק שה-Submit button widget קיים ולא הוסר',
+      'בדוק שאין CSS שמסתיר את הכפתור: <code>display:none</code> או <code>visibility:hidden</code>',
+    ]
+  },
+  form_validation: {
+    label: 'בעיית אימות טופס',
+    steps: [
+      'פתח את הטופס ונסה לשלוח ריק — האם מופיעות הודעות שגיאה על שדות חובה?',
+      'בדוק שכל שדה חובה מסומן עם <code>required</code>',
+      'בדוק שלשדה אימייל יש <code>type="email"</code> לאימות אוטומטי',
+      'אם הטופס מגיב רק ב-JavaScript: בדוק שאין שגיאת JS שמונעת את ה-validation',
+    ]
+  },
+  form_broken_action: {
+    label: 'כתובת שליחת הטופס שבורה',
+    steps: [
+      'כתובת ה-action של הטופס מחזירה שגיאה — הטופס לא יישלח',
+      'ב-Contact Form 7: בדוק שהעמוד עם הטופס לא שינה URL',
+      'ב-תוספי טפסים אחרים: ודא שה-endpoint של העיבוד פעיל',
+      'בדוק ב-WordPress → Settings → General שה-Site URL נכון',
+    ]
+  },
+  nav_broken_links: {
+    label: 'קישורים שבורים בתפריט',
+    steps: [
+      'עבור ל-WordPress → Appearance → Menus',
+      'לחץ על כל פריט תפריט ובדוק שה-URL שמוגדר קיים ותקין',
+      'דפים שנמחקו נשארים לפעמים בתפריט — מחק אותם מהתפריט ידנית',
+      'הוסף Redirect 301 לדפים שמחקת אם יש קישורים חיצוניים שמצביעים עליהם',
+    ]
+  },
+  accordion_broken: {
+    label: 'Accordion / FAQ לא עובד',
+    steps: [
+      'פתח את העמוד ולחץ ידנית על שאלה/כותרת ב-FAQ — האם הוא נפתח?',
+      'בדוק Console (F12) לשגיאת JS בעת לחיצה',
+      'קונפליקט jQuery — בדוק אם תוסף Cache מבצע defer ל-JS של הסליידר/accordion',
+      'ב-Elementor Accordion: עדכן ל-Elementor אחרון, נסה לשמור את הרכיב מחדש',
+    ]
+  },
+  tabs_broken: {
+    label: 'Tabs לא עובדים',
+    steps: [
+      'לחץ על Tabs ידנית בדפדפן — האם הם מחליפים תוכן?',
+      'בדוק Console (F12) לשגיאת JS בעת לחיצה על tab',
+      'בדוק שה-CSS של ה-tab הפעיל (.active) מוגדר נכון',
+      'קונפליקט Bootstrap/jQuery — ודא שיש רק גרסה אחת של jQuery בדף',
+    ]
   }
 };
 
