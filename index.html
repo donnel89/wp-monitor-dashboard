@@ -106,6 +106,22 @@
     .issue-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; font-size: 11px; }
     .chip-critical { background: #fef2f2; color: #dc2626; }
     .chip-warning  { background: #fffbeb; color: #b45309; }
+    .issue-block { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; margin-bottom: 6px; }
+    .issue-block.sev-critical { border-right: 3px solid #dc2626; }
+    .issue-block.sev-warning  { border-right: 3px solid #f59e0b; }
+    .issue-top { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; }
+    .issue-top:hover { background: #fafafa; }
+    .issue-arrow { font-size: 10px; color: #94a3b8; transition: transform .2s; margin-right: auto; flex-shrink: 0; }
+    .issue-block.open .issue-arrow { transform: rotate(90deg); }
+    .fix-guide { display: none; padding: 10px 14px 12px; border-top: 1px solid #f3f4f6; background: #f9fafb; }
+    .issue-block.open .fix-guide { display: block; }
+    .fix-guide-title { font-size: 11px; font-weight: 700; color: #374151; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+    .fix-steps { display: flex; flex-direction: column; gap: 4px; }
+    .fix-step { display: flex; align-items: baseline; gap: 6px; font-size: 11px; color: #4b5563; }
+    .fix-step::before { content: "→"; color: #3b82f6; font-weight: 700; flex-shrink: 0; }
+    .fix-step code { background: #e5e7eb; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-family: monospace; }
+    .fix-link { color: #2563eb; text-decoration: none; font-size: 11px; }
+    .fix-link:hover { text-decoration: underline; }
     .viewport-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: #f3f4f6; color: #555; font-weight: 600; }
     .no-issues { text-align: center; padding: 36px; color: #16a34a; font-size: 16px; font-weight: 600; }
     .empty-state { text-align: center; padding: 48px; color: #94a3b8; font-size: 14px; }
@@ -524,7 +540,7 @@ async function renderResults() {
           <a class="url-link" href="${url}" target="_blank">${decodeURIComponent(url)}</a>
           <span class="url-meta">${meta}</span>
         </div>
-        <div class="issues-list">${issues.map(i=>`<span class="issue-chip chip-${i.severity}"><span class="viewport-badge">${i.viewport}</span>${i.message}</span>`).join('')}</div>
+        <div class="issues-list">${issues.map(i=>buildIssueBlock(i)).join('')}</div>
       </div>`;
     }
     html += '</div>';
@@ -828,6 +844,103 @@ function showToast(msg, type='') {
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => { t.classList.add('hide'); setTimeout(()=>t.remove(),400); }, 3500);
+}
+
+// ============================================================
+//  FIX GUIDES — הסברים לתיקון לפי סוג בעיה
+// ============================================================
+const FIX_GUIDE = {
+  load_error: {
+    label: 'שגיאת טעינה',
+    steps: [
+      'בדוק שהדומיין פעיל ומחודש בחשבון הרשמה',
+      'בדוק שתעודת ה-SSL תקינה (פתח את האתר ב-Chrome — אין אזהרה מנעול אדום?)',
+      'פתח את לוח הבקרה של ה-Hosting ובדוק שהאתר לא מושבת',
+      'נסה לגשת לכתובת ישירות מהדפדפן לאימות',
+    ]
+  },
+  http_error: {
+    label: 'שגיאת HTTP',
+    steps: [
+      '<b>404</b> — הדף נמחק או שינה כתובת. בדוק Redirects ב-WordPress → Settings → Permalinks (שמור מחדש)',
+      '<b>500</b> — שגיאת שרת. בדוק <code>wp-content/debug.log</code> או השבת תוספים אחד-אחד',
+      '<b>503</b> — שרת עמוס. בדוק את הגדרות ה-Cache, Cloudflare, או שדרג את החבילה',
+      '<b>403</b> — גישה חסומה. בדוק הרשאות קבצים (755/644) וחוקי firewall',
+    ]
+  },
+  slow_load: {
+    label: 'טעינה איטית',
+    steps: [
+      'הפעל/בדוק תוסף Cache: WP Rocket, LiteSpeed Cache, או W3 Total Cache',
+      'בדוק תמונות: כל תמונה מעל 200KB — דחוס עם Smush / ShortPixel / העבר ל-WebP',
+      'הפעל CDN (Cloudflare בחינם) להגשה מהירה של קבצים סטטיים',
+      'בדוק כמות תוספים — כל תוסף מוסיף בקשות HTTP. מחק לא פעילים',
+      'שקול מעבר מ-Shared Hosting ל-VPS אם הבעיה חוזרת',
+    ]
+  },
+  missing_element: {
+    label: 'אלמנט חסר',
+    steps: [
+      '<b>header</b> חסר — בדוק שהתבנית (Theme) פעילה ואחרון העדכון לא שבר את ה-header',
+      '<b>footer</b> חסר — בדוק WordPress → Appearance → Widgets ושה-footer לא ריק',
+      '<b>nav</b> חסר — בדוק WordPress → Appearance → Menus, ושהתפריט משויך למיקום הנכון',
+      'בדוק שלא בוצעה עריכה ב-Theme Files שמחקה את קריאת ה-template',
+    ]
+  },
+  js_error: {
+    label: 'שגיאת JavaScript',
+    steps: [
+      'פתח את האתר בדפדפן → F12 → Console וזהה את השגיאה המדויקת',
+      'קונפליקט בין תוספים — השבת תוספים אחד-אחד עד שהשגיאה נעלמת',
+      'תוסף לא תואם לגרסת WordPress — בדוק עדכונים ב-Plugins',
+      'בדוק אם CDN חוסם קובץ JS (Cloudflare → Caching → Purge Everything)',
+      'שגיאת <code>is not a function</code> — בדרך כלל תוסף Video/Slider שמניח jQuery גרסה ספציפית',
+    ]
+  },
+  failed_requests: {
+    label: 'בקשות שנכשלו',
+    steps: [
+      'תמונה חסרה — בדוק WordPress → Media Library אם הקובץ קיים',
+      'קובץ CSS/JS חסר — בדוק אם תוסף הוסר אבל השאיר Enqueue',
+      'חוסם ב-Cloudflare — בדוק Firewall Rules ו-Hotlink Protection',
+      'בדוק ב-F12 → Network → סנן "Failed" לראות אילו קבצים נכשלים',
+    ]
+  },
+  visual_diff: {
+    label: 'שינוי ויזואלי',
+    steps: [
+      '<b>שינוי מכוון?</b> — מחק את תיקיית ה-Baseline כדי לאפס ולהגדיר את המראה הנוכחי כתקין',
+      '<b>שינוי לא מכוון?</b> — בדוק אם עדכון תוסף/תבנית שינה CSS',
+      'בדוק Revision History ב-Elementor / Gutenberg לשינויים אחרונים',
+      'בדוק אם Cloudflare Rocket Loader שינה את הטעינה',
+    ]
+  }
+};
+
+function toggleIssue(el) {
+  el.closest('.issue-block').classList.toggle('open');
+}
+
+function buildIssueBlock(issue) {
+  const guide  = FIX_GUIDE[issue.type] || null;
+  const label  = guide?.label || issue.type;
+  const sev    = issue.severity;
+  const stepsHtml = guide
+    ? `<div class="fix-guide">
+        <div class="fix-guide-title">💡 כיצד לתקן:</div>
+        <div class="fix-steps">${guide.steps.map(s=>`<div class="fix-step">${s}</div>`).join('')}</div>
+      </div>`
+    : '';
+  const arrow = guide ? `<span class="issue-arrow">▶</span>` : '';
+  const cursor = guide ? 'onclick="toggleIssue(this)"' : '';
+  return `<div class="issue-block sev-${sev}">
+    <div class="issue-top" ${cursor}>
+      <span class="viewport-badge">${issue.viewport||''}</span>
+      <span class="issue-chip chip-${sev}" style="background:none;padding:0">${label}: ${issue.message}</span>
+      ${arrow}
+    </div>
+    ${stepsHtml}
+  </div>`;
 }
 
 // ============================================================
