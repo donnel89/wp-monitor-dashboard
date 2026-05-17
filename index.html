@@ -359,7 +359,8 @@ async function loadConfig() {
     const res  = await ghFetch(`/repos/${PRIVATE_REPO}/contents/config.json`);
     const data = await res.json();
     configSha  = data.sha;
-    configData = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+    const bytes = Uint8Array.from(atob(data.content.replace(/\n/g,'')), c => c.charCodeAt(0));
+    configData = JSON.parse(new TextDecoder('utf-8').decode(bytes));
     configLoaded = true;
     renderSitesManage();
     populatePagesDropdown();
