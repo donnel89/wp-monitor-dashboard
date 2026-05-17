@@ -1123,6 +1123,239 @@ const FIX_GUIDE = {
     ]
   },
 
+  // SEO טכני
+  canonical_missing: {
+    label: 'חסר תג Canonical',
+    steps: [
+      'בכל עמוד חייב להיות: <code>&lt;link rel="canonical" href="URL_של_העמוד"&gt;</code>',
+      'ב-Yoast SEO: מופעל אוטומטית — בדוק שהתוסף פעיל ומוגדר',
+      'ב-Rank Math: SEO → Titles & Meta → הפעל Canonical URLs',
+      'גוגל משתמש ב-Canonical כדי לדעת איזו גרסה של העמוד לאנדקס',
+    ]
+  },
+  canonical_external: {
+    label: '⛔ Canonical לדומיין חיצוני',
+    steps: [
+      'זה אומר לגוגל לאנדקס אתר אחר במקום שלך — קריטי!',
+      'בדוק ב-Yoast / Rank Math שה-Canonical URL לא שונה ידנית לכתובת שגויה',
+      'בדוק שלא הועתק תוכן מאתר אחר עם Canonical לאתר המקורי',
+      'תקן מיד: ה-Canonical צריך להצביע לאותו עמוד (self-referencing)',
+    ]
+  },
+  canonical_invalid: {
+    label: 'Canonical לא תקין',
+    steps: [
+      'ה-Canonical קיים אבל ריק או עם URL לא תקין',
+      'בדוק ב-Yoast SEO → Advanced → Canonical URL — מחק ואפס',
+      'בדוק שאין קוד PHP/JS שמדרס את ה-Canonical בטעות',
+      'תקן ל-URL מלא ומוחלט (כולל https://)',
+    ]
+  },
+  redirect_chain: {
+    label: 'שרשרת הפניות (Redirect Chain)',
+    steps: [
+      'שרשרת A→B→C במקום A→C מאיטה טעינה ומחלישה SEO (PageRank מאבד כוח בכל hop)',
+      'בדוק ב-Redirection Plugin: מחפש redirects שמצביעים לכתובת שגם היא redirect',
+      'תקן ישירות: כל redirect צריך להצביע לכתובת הסופית',
+      'לאחר תיקון: בדוק ב-httpstatus.io שהשרשרת קוצרה',
+    ]
+  },
+
+  // ביצועים נוספים
+  no_webp: {
+    label: 'תמונות לא ב-WebP',
+    steps: [
+      'WebP קטן ב-25-35% מ-JPG ו-80% מ-PNG תוך שמירה על איכות',
+      'תוסף Smush / ShortPixel / Imagify: ממיר אוטומטית ל-WebP בהעלאה',
+      'ב-LiteSpeed Cache: Image Optimization → Convert to WebP',
+      'בדוק שהשרת מגיש WebP כשהדפדפן תומך (ברוב הדפדפנים היום)',
+    ]
+  },
+  no_compression: {
+    label: 'אין דחיסת Gzip/Brotli',
+    steps: [
+      'דחיסה חוסכת 60-80% מנפח ה-HTML/CSS/JS',
+      'ב-Apache: הוסף ל-<code>.htaccess</code>: <code>AddOutputFilterByType DEFLATE text/html text/css application/javascript</code>',
+      'ב-Nginx: הוסף <code>gzip on; gzip_types text/html text/css application/javascript;</code>',
+      'ב-cPanel Hosting: בדוק Optimize Website → Compress All Content',
+      'בדוק דחיסה ב: gtmetrix.com או web.dev/measure',
+    ]
+  },
+  no_cache_headers: {
+    label: 'CSS/JS ללא Cache-Control',
+    steps: [
+      'ללא Cache-Control קבצים נטענים מחדש מהשרת בכל ביקור',
+      'ב-<code>.htaccess</code>: הוסף <code>ExpiresByType text/css "access plus 1 year"</code>',
+      'ב-WP Rocket: Browser Caching מופעל אוטומטית',
+      'ב-Cloudflare: Cache → Browser Cache TTL → 1 year',
+      'שים לב: לאחר עדכון קובץ, שנה את שם הקובץ או הוסף version parameter',
+    ]
+  },
+  font_blocking: {
+    label: 'Google Fonts חוסמות רינדור',
+    steps: [
+      'Google Fonts ב-<head> מעכבות הצגת הדף עד שהפונט נטען',
+      'פתרון 1 (מומלץ): העבר לפונטים מקומיים עם תוסף OMGF (Local Google Fonts)',
+      'פתרון 2: הוסף <code>&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;</code> לפני השורה',
+      'פתרון 3: טען ב-JavaScript אסינכרוני במקום <link> ב-head',
+      'בדוק השפעה ב-PageSpeed Insights → Eliminate render-blocking resources',
+    ]
+  },
+
+  // אבטחה נוספת
+  cookie_flags: {
+    label: 'עוגיות ללא Secure/HttpOnly',
+    steps: [
+      '<b>HttpOnly</b>: מונע גישה לעוגייה מ-JavaScript (הגנה מ-XSS)',
+      '<b>Secure</b>: עוגייה נשלחת רק ב-HTTPS (הגנה מ-MITM)',
+      'ב-WordPress: הוסף ל-<code>wp-config.php</code>: <code>define(\'COOKIE_SECURE\', true);</code>',
+      'תוסף WP Security Audit Log / Sucuri מוסיפים Cookie flags אוטומטית',
+    ]
+  },
+  wp_debug_on: {
+    label: '⛔ WP_DEBUG פעיל בייצור',
+    steps: [
+      '<b>דחוף!</b> — גולשים רואים שגיאות PHP עם מסלולי קבצים וקוד פנימי',
+      'ב-<code>wp-config.php</code>: שנה ל-<code>define(\'WP_DEBUG\', false);</code>',
+      'אם צריך לוג שגיאות: השתמש ב-<code>define(\'WP_DEBUG_LOG\', true); define(\'WP_DEBUG_DISPLAY\', false);</code>',
+      'לאחר תיקון: ודא שהשגיאות לא מוצגות — בדוק ב-Console (F12)',
+    ]
+  },
+  jquery_outdated: {
+    label: 'jQuery ישנה',
+    steps: [
+      'jQuery לפני גרסה 3 מכילה חולשות XSS ידועות',
+      'ב-WordPress: הרץ עדכוני תוספים — רוב הפלאגינים מעדכנים jQuery אוטומטית',
+      'בדוק איזה תוסף טוען jQuery ישנה: F12 → Network → חפש "jquery"',
+      'הוסף ל-<code>functions.php</code> כדי להחליף: <code>wp_enqueue_script(\'jquery\', ..., \'3.7.1\', true);</code>',
+    ]
+  },
+  user_enumeration: {
+    label: '⛔ חשיפת שם משתמש מנהל',
+    steps: [
+      '<b>/?author=1 מחזיר שם משתמש</b> — מאפשר לתוקפים לנסות Brute Force מדויק',
+      'הוסף ל-<code>functions.php</code>: <code>add_action(\'template_redirect\', function(){ if (is_author()) { wp_redirect(home_url()); exit; } });</code>',
+      'תוסף WPS Hide Login / Wordfence חוסמים זאת אוטומטית',
+      'שקול לשנות את שם המשתמש של המנהל מ-"admin" לשם ייחודי',
+    ]
+  },
+
+  // UX ועסקי
+  placeholder_text: {
+    label: '⛔ תוכן Lorem Ipsum',
+    steps: [
+      'תוכן Placeholder שנשאר בייצור פוגע באמינות ובSEO',
+      'חפש בעורך Elementor / Gutenberg את הטקסט ושנה לתוכן אמיתי',
+      'בדוק בכל העמודים — לפעמים נשאר בתוך Widget מוסתר',
+      'הגדר תזכורת לאחר בניית כל עמוד לבדוק שאין Placeholder',
+    ]
+  },
+  broken_video: {
+    label: 'סרטון Embed שבור',
+    steps: [
+      'בדוק ידנית שהסרטון ב-YouTube/Vimeo עדיין קיים ופומבי (לא נמחק/הוסתר)',
+      'ב-Elementor: ערוך את ה-Video widget והחלף ל-URL עדכני',
+      'ב-Gutenberg: ערוך את בלוק ה-Embed',
+      'אם הסרטון נמחק: החלף בסרטון חדש או הסר את ה-embed לחלוטין',
+    ]
+  },
+  favicon_missing: {
+    label: 'חסר Favicon',
+    steps: [
+      'ב-WordPress: Appearance → Customize → Site Identity → Site Icon',
+      'גודל מומלץ: 512×512 PNG (WordPress ממיר אוטומטית לגדלים שונים)',
+      'הפיקסל הוא 16×16 בטאב הדפדפן — ודא שהלוגו נראה טוב גם בגודל קטן',
+      'לאחר הגדרה: רענן את הדפדפן ובדוק שהאייקון מופיע בטאב',
+    ]
+  },
+  apple_icon_missing: {
+    label: 'חסר Apple Touch Icon',
+    steps: [
+      'ב-WordPress: Appearance → Customize → Site Identity → Site Icon (מגדיר גם Apple Icon)',
+      'הוסף ידנית: <code>&lt;link rel="apple-touch-icon" href="/apple-touch-icon.png"&gt;</code>',
+      'גודל מומלץ: 180×180 PNG',
+      'שמירה לדף הבית ב-iPhone תציג את האייקון הזה',
+    ]
+  },
+  no_whatsapp: {
+    label: 'חסר כפתור WhatsApp',
+    steps: [
+      'הוסף קישור WhatsApp: <code>https://wa.me/972XXXXXXXXX</code> (בלי מקפים/רווחים)',
+      'ב-Elementor: גרור Button widget → קישור → הדבק כתובת WhatsApp',
+      'תוסף WP WhatsApp Chat / Click to Chat מוסיף כפתור צף אוטומטית',
+      'שקול גם Floating Chat Button (צף, תמיד גלוי) לנוחות מקסימלית',
+    ]
+  },
+
+  // משפטי / ציות
+  no_privacy_policy: {
+    label: 'חסרת מדיניות פרטיות',
+    steps: [
+      'חובה לפי GDPR (EU) וחוק הגנת הפרטיות הישראלי לכל אתר שאוסף מידע',
+      'ב-WordPress: Pages → Add New → השתמש ב-Template של Privacy Policy',
+      'WordPress 4.9.6+: Settings → Privacy → יוצר דף אוטומטית עם תוכן בסיסי',
+      'הוסף קישור בולט ב-Footer לדף המדיניות',
+      'וודא שהדף מפרט: אילו נתונים נאספים, למה, ואיך ניתן לבקש מחיקה',
+    ]
+  },
+  no_terms: {
+    label: 'חסרים תנאי שימוש',
+    steps: [
+      'תנאי שימוש מגנים על העסק ומגדירים ציפיות לגולשים',
+      'צור עמוד "תנאי שימוש" עם: תיאור השירות, מגבלות שימוש, אחריות, קניין רוחני',
+      'לחנויות WooCommerce: WooCommerce → Settings → Advanced → Terms and Conditions',
+      'הוסף קישור ב-Footer ובדף התשלום (לאתרי מסחר)',
+    ]
+  },
+  no_a11y_statement: {
+    label: 'חסרת הצהרת נגישות',
+    steps: [
+      'חובה חוקית בישראל לפי תקנות שוויון זכויות לאנשים עם מוגבלות (תקנות 5760)',
+      'עסקים עם יותר מ-25 עובדים חייבים הצהרת נגישות עם דרגת הנגישות ופרטי יצירת קשר',
+      'תוסף One Click Accessibility יוצר הצהרת נגישות בסיסית',
+      'בדוק דרישות מלאות: gov.il/he/departments/general/web-accessibility',
+      'הוסף קישור "הצהרת נגישות" ב-Footer',
+    ]
+  },
+
+  // Sitemap & 404
+  sitemap_missing: {
+    label: 'חסרת Sitemap.xml',
+    steps: [
+      'ב-Yoast SEO: SEO → General → Features → XML Sitemaps → On',
+      'ב-Rank Math: Sitemap → General Sitemap → הפעל',
+      'לאחר הפעלה: פתח https://yourdomain.com/sitemap_index.xml לאימות',
+      'הגש את ה-Sitemap ב-Google Search Console: Index → Sitemaps → Add',
+    ]
+  },
+  sitemap_invalid: {
+    label: 'Sitemap לא תקינה',
+    steps: [
+      'פתח את ה-sitemap.xml ישירות בדפדפן — מה מוצג?',
+      'Sitemap תקינה מכילה <code>&lt;urlset&gt;</code> או <code>&lt;sitemapindex&gt;</code>',
+      'בדוק שאין חסימה ב-robots.txt: <code>Disallow: /sitemap.xml</code>',
+      'ב-Yoast: נסה לבצע Rebuild Sitemap מ-SEO → Tools → Bulk editor',
+    ]
+  },
+  no_404_page: {
+    label: 'עמוד 404 לא מוגדר',
+    steps: [
+      'שרת שמחזיר HTTP 200 לכל URL הוא "Soft 404" — גוגל לא יזהה עמודים חסרים',
+      'בדוק ב-Settings → Permalinks — לחץ "Save Changes" כדי לאפס htaccess',
+      'בדוק שה-<code>.htaccess</code> תקין ומכיל WordPress rewrite rules',
+      'ב-Nginx: ודא שיש <code>try_files $uri $uri/ /index.php?$args;</code>',
+    ]
+  },
+  weak_404_page: {
+    label: 'עמוד 404 מינימלי',
+    steps: [
+      'עמוד 404 טוב מחזיר גולש שאבד — עמוד ריק גורם לנטישה',
+      'ב-WordPress: ערוך את <code>404.php</code> בתבנית, הוסף: חיפוש, קישורים פופולריים, לוגו',
+      'ב-Elementor: התקן תוסף 404 Page עם עיצוב מותאם אישית',
+      'הוסף כפתור "חזרה לדף הבית" בולט',
+    ]
+  },
+
   // GDPR & יצירת קשר
   gdpr_missing: {
     label: 'חסר באנר עוגיות GDPR',
