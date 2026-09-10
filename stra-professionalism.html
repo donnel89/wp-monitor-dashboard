@@ -37,27 +37,29 @@ body{
 .deck{position:relative;height:100dvh;width:100%;overflow:hidden}
 .slide{
   position:absolute;inset:0;
-  display:flex;flex-direction:column;justify-content:center;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;
   padding:clamp(22px,4.5vw,70px) clamp(20px,6vw,90px) clamp(64px,7vh,84px);
   opacity:0;visibility:hidden;transform:translateY(14px);
   transition:opacity .38s ease,transform .38s ease,visibility .38s;
   overflow-y:auto;
 }
 .slide.active{opacity:1;visibility:visible;transform:none}
+.slide > *{width:100%;max-width:1320px;margin-inline:auto}
 @media (prefers-reduced-motion:reduce){.slide{transition:none}}
 
 h1,h2,h3,p,ul{margin:0}
 .eyebrow{
-  font-size:clamp(12px,1.35vw,15px);font-weight:700;color:var(--blue);
+  font-size:clamp(13px,1.1vw,19px);font-weight:700;color:var(--blue);
   letter-spacing:.02em;margin-bottom:10px;
 }
 h2.title{
-  font-size:clamp(23px,3.5vw,44px);font-weight:900;line-height:1.2;
+  font-size:clamp(26px,3.6vw,60px);font-weight:900;line-height:1.2;text-wrap:balance;
   letter-spacing:-.015em;margin-bottom:clamp(10px,1.6vh,18px);
 }
 .lede{
-  font-size:clamp(14px,1.7vw,21px);color:var(--gray);font-weight:400;
-  line-height:1.6;max-width:62ch;margin-bottom:clamp(16px,2.6vh,32px);
+  font-size:clamp(15px,1.6vw,27px);color:var(--gray);font-weight:400;
+  line-height:1.6;max-width:min(62ch,1000px);margin-bottom:clamp(16px,2.6vh,32px);
 }
 
 /* ===== פוטר וניווט ===== */
@@ -85,26 +87,27 @@ h2.title{
 }
 .nav button:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
 .nav button:disabled{opacity:.32;cursor:default;background:#fff;color:var(--blue)}
-.counter{font-size:12.5px;font-weight:700;color:var(--gray-soft);min-width:38px;text-align:center}
+.counter{font-size:12.5px;font-weight:700;color:var(--gray-soft);min-width:38px;text-align:center;direction:ltr}
 .progress{position:fixed;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--violet),var(--blue));z-index:40;transition:width .38s ease}
 
 /* ===== שקופית פתיחה ===== */
-.cover{justify-content:center;align-items:flex-start}
+.cover{justify-content:center;align-items:center}
 .cover .kicker{
   display:inline-block;background:var(--pale);color:var(--blue-deep);
-  padding:7px 15px;border-radius:999px;font-size:clamp(12px,1.4vw,15px);font-weight:700;
+  width:auto;max-width:none;
+  padding:8px 18px;border-radius:999px;font-size:clamp(13px,1.15vw,19px);font-weight:700;
   margin-bottom:clamp(16px,2.6vh,26px);
 }
 .cover h1{
-  font-size:clamp(36px,7vw,88px);font-weight:900;line-height:1.05;letter-spacing:-.03em;
+  font-size:clamp(38px,7.5vw,120px);font-weight:900;line-height:1.05;letter-spacing:-.03em;text-wrap:balance;
   background:linear-gradient(105deg,var(--ink) 0%,var(--blue) 58%,var(--violet) 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   margin-bottom:clamp(14px,2.2vh,22px);
 }
-.cover p{font-size:clamp(15px,2vw,24px);color:var(--gray);max-width:26ch;line-height:1.55;font-weight:400}
+.cover p{font-size:clamp(16px,2vw,30px);color:var(--gray);max-width:min(30ch,760px);line-height:1.55;font-weight:400}
 .arrowline{
-  margin-top:clamp(22px,4vh,44px);display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  font-size:clamp(14px,1.8vw,21px);font-weight:700;
+  margin-top:clamp(22px,4vh,44px);display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+  font-size:clamp(15px,1.8vw,28px);font-weight:700;
 }
 .arrowline .from{color:var(--gray-soft)}
 .arrowline .to{color:var(--blue)}
@@ -114,37 +117,38 @@ h2.title{
 .quote{
   background:linear-gradient(120deg,#0B1B33 0%,#1B3A6B 55%,#2E4FA8 100%);
   color:#EAF2FF;border-radius:20px;padding:clamp(20px,3vw,38px);
-  font-size:clamp(15px,2vw,25px);font-weight:500;line-height:1.55;
+  font-size:clamp(16px,2vw,32px);font-weight:500;line-height:1.55;
   box-shadow:0 20px 46px -26px rgba(11,27,51,.6);
-  margin-bottom:clamp(16px,2.6vh,30px);max-width:60ch;
+  margin-bottom:clamp(16px,2.6vh,30px);max-width:min(62ch,1040px);
 }
 
 /* ===== רשימות ===== */
-.checks{list-style:none;display:grid;gap:clamp(8px,1.5vh,14px);max-width:72ch}
+.checks{list-style:none;display:grid;gap:clamp(8px,1.5vh,14px);max-width:min(78ch,1180px)}
 .checks li{
   display:flex;gap:12px;align-items:flex-start;
   background:var(--white);border:1px solid var(--line);border-radius:14px;
   padding:clamp(11px,1.7vh,16px) clamp(13px,1.6vw,20px);
-  font-size:clamp(13.5px,1.6vw,19px);line-height:1.5;
+  font-size:clamp(14.5px,1.5vw,25px);line-height:1.5;text-align:right;
   box-shadow:0 6px 18px -14px rgba(11,27,51,.35);
 }
 .checks li .mark{color:var(--blue);font-weight:900;flex-shrink:0;line-height:1.45}
 .checks li strong{font-weight:700}
 
 /* ===== צ'יפים מחלקות ===== */
-.chips{display:flex;flex-wrap:wrap;gap:clamp(8px,1.1vw,13px);margin-bottom:clamp(18px,3vh,32px)}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:clamp(8px,1.1vw,13px);margin-bottom:clamp(18px,3vh,32px)}
 .chip{
   background:var(--white);border:1px solid var(--line);border-radius:999px;
   padding:clamp(8px,1.3vh,13px) clamp(15px,1.9vw,26px);
-  font-size:clamp(13px,1.6vw,20px);font-weight:700;color:var(--ink-2);
+  font-size:clamp(14px,1.5vw,25px);font-weight:700;color:var(--ink-2);
   box-shadow:0 6px 16px -12px rgba(11,27,51,.4);
 }
 .punch{
   border-right:4px solid var(--blue);background:var(--pale-2);
-  border-radius:0 16px 16px 0;padding:clamp(14px,2vh,22px) clamp(16px,2vw,26px);max-width:64ch;
+  border-radius:0 16px 16px 0;padding:clamp(14px,2vh,22px) clamp(16px,2vw,26px);
+  max-width:min(70ch,1100px);text-align:right;
 }
-.punch b{display:block;font-size:clamp(15px,2.1vw,26px);font-weight:800;margin-bottom:6px;line-height:1.35}
-.punch span{font-size:clamp(13px,1.55vw,18px);color:var(--gray);line-height:1.55}
+.punch b{display:block;font-size:clamp(16px,2vw,34px);font-weight:800;margin-bottom:6px;line-height:1.35}
+.punch span{font-size:clamp(14px,1.5vw,23px);color:var(--gray);line-height:1.55}
 
 /* ===== כרטיסי יכולות ===== */
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(9px,1.2vw,16px)}
@@ -154,21 +158,21 @@ h2.title{
   box-shadow:0 10px 26px -20px rgba(11,27,51,.45);
   display:flex;flex-direction:column;gap:6px;
 }
-.cap b{font-size:clamp(13.5px,1.65vw,21px);font-weight:800;line-height:1.3}
-.cap span{font-size:clamp(11.5px,1.25vw,15px);color:var(--gray-soft);line-height:1.5}
+.cap b{font-size:clamp(15px,1.6vw,27px);font-weight:800;line-height:1.3}
+.cap span{font-size:clamp(12.5px,1.2vw,19px);color:var(--gray-soft);line-height:1.5}
 .cap i{
-  width:30px;height:4px;border-radius:99px;display:block;margin-bottom:4px;
+  width:34px;height:4px;border-radius:99px;display:block;margin:0 auto 4px;
   background:linear-gradient(90deg,var(--blue),var(--sky));
 }
 
 /* ===== טריגרים ===== */
-.rows{display:grid;gap:clamp(7px,1.15vh,11px);max-width:96ch}
+.rows{display:grid;gap:clamp(7px,1.15vh,11px);max-width:min(100ch,1320px)}
 .row{
   display:grid;grid-template-columns:minmax(88px,.8fr) 2fr auto 1.5fr;
   align-items:center;gap:clamp(8px,1.3vw,20px);
   background:var(--white);border:1px solid var(--line);border-radius:13px;
   padding:clamp(9px,1.5vh,15px) clamp(12px,1.5vw,20px);
-  font-size:clamp(12px,1.42vw,18px);line-height:1.4;
+  font-size:clamp(13px,1.35vw,22px);line-height:1.4;text-align:right;
   box-shadow:0 6px 18px -16px rgba(11,27,51,.4);
 }
 .row .dept{font-weight:800;color:var(--blue-deep)}
@@ -177,55 +181,55 @@ h2.title{
 .row .act{font-weight:700}
 
 /* ===== שלושה צעדים ===== */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(10px,1.6vw,22px);align-items:stretch}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(10px,1.6vw,22px);align-items:stretch;max-width:1180px}
 .step{
   background:var(--white);border:1px solid var(--line);border-radius:18px;
   padding:clamp(16px,2.4vh,30px) clamp(14px,1.7vw,26px);
   box-shadow:0 14px 34px -24px rgba(11,27,51,.5);position:relative;
 }
 .step .n{
-  width:clamp(34px,3.6vw,48px);height:clamp(34px,3.6vw,48px);border-radius:50%;
+  width:clamp(36px,3.4vw,64px);height:clamp(36px,3.4vw,64px);border-radius:50%;margin-inline:auto;
   background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;
-  display:grid;place-items:center;font-weight:900;font-size:clamp(15px,1.9vw,23px);
+  display:grid;place-items:center;font-weight:900;font-size:clamp(16px,1.8vw,30px);
   margin-bottom:clamp(10px,1.6vh,16px);
 }
-.step b{display:block;font-size:clamp(16px,2.1vw,27px);font-weight:900;margin-bottom:7px}
-.step span{font-size:clamp(12.5px,1.45vw,17px);color:var(--gray);line-height:1.55}
+.step b{display:block;font-size:clamp(17px,2vw,34px);font-weight:900;margin-bottom:7px}
+.step span{font-size:clamp(13.5px,1.4vw,22px);color:var(--gray);line-height:1.55}
 
 /* ===== סטנדרט (לא) ===== */
-.nots{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,1.4vh,13px);max-width:100ch}
+.nots{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,1.4vh,13px);max-width:min(104ch,1320px)}
 .nots li{
   background:var(--white);border:1px solid var(--line);border-radius:13px;
   padding:clamp(10px,1.6vh,16px) clamp(12px,1.5vw,20px);
   display:flex;gap:11px;align-items:flex-start;
-  font-size:clamp(12.5px,1.45vw,18px);line-height:1.5;
+  font-size:clamp(13.5px,1.4vw,23px);line-height:1.5;text-align:right;
   box-shadow:0 6px 18px -16px rgba(11,27,51,.4);
 }
 .nots li .x{
-  flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--pale);
-  color:var(--blue-deep);display:grid;place-items:center;font-weight:900;font-size:13px;margin-top:1px;
+  flex-shrink:0;width:26px;height:26px;border-radius:8px;background:var(--pale);
+  color:var(--blue-deep);display:grid;place-items:center;font-weight:900;font-size:15px;margin-top:2px;
 }
 
 /* ===== חמש שאלות ===== */
-.qs{list-style:none;display:grid;gap:clamp(8px,1.5vh,14px);max-width:80ch;counter-reset:q}
+.qs{list-style:none;display:grid;gap:clamp(8px,1.5vh,14px);max-width:min(80ch,1150px);counter-reset:q}
 .qs li{
   counter-increment:q;display:flex;gap:clamp(12px,1.5vw,20px);align-items:center;
   background:var(--white);border:1px solid var(--line);border-radius:15px;
   padding:clamp(11px,1.8vh,19px) clamp(14px,1.7vw,24px);
-  font-size:clamp(13.5px,1.65vw,21px);font-weight:500;line-height:1.45;
+  font-size:clamp(14.5px,1.55vw,27px);font-weight:500;line-height:1.45;text-align:right;
   box-shadow:0 8px 22px -18px rgba(11,27,51,.45);
 }
 .qs li::before{
   content:counter(q);flex-shrink:0;
-  width:clamp(29px,3vw,40px);height:clamp(29px,3vw,40px);border-radius:11px;
+  width:clamp(31px,2.8vw,52px);height:clamp(31px,2.8vw,52px);border-radius:12px;
   background:var(--pale);color:var(--blue-deep);
-  display:grid;place-items:center;font-weight:900;font-size:clamp(14px,1.6vw,19px);
+  display:grid;place-items:center;font-weight:900;font-size:clamp(15px,1.5vw,24px);
 }
 
 /* ===== סיום ===== */
-.final{align-items:flex-start;justify-content:center}
+.final{align-items:center;justify-content:center}
 .final h2{
-  font-size:clamp(30px,5.6vw,70px);font-weight:900;line-height:1.12;letter-spacing:-.025em;
+  font-size:clamp(32px,5.8vw,96px);font-weight:900;line-height:1.12;letter-spacing:-.025em;text-wrap:balance;
   margin-bottom:clamp(16px,2.6vh,28px);
 }
 .final h2 em{
@@ -233,11 +237,11 @@ h2.title{
   background:linear-gradient(105deg,var(--blue),var(--violet));
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.final p{font-size:clamp(14.5px,1.9vw,23px);color:var(--gray);max-width:52ch;line-height:1.6;margin-bottom:clamp(18px,3vh,30px)}
+.final p{font-size:clamp(15.5px,1.8vw,29px);color:var(--gray);max-width:min(56ch,900px);line-height:1.6;margin-bottom:clamp(18px,3vh,30px)}
 .final .stamp{
-  display:inline-block;background:linear-gradient(120deg,#0B1B33,#2E4FA8);
-  color:#EAF2FF;border-radius:16px;padding:clamp(14px,2vh,22px) clamp(18px,2.4vw,32px);
-  font-size:clamp(14px,1.85vw,23px);font-weight:800;line-height:1.45;
+  display:inline-block;width:auto;max-width:none;background:linear-gradient(120deg,#0B1B33,#2E4FA8);
+  color:#EAF2FF;border-radius:16px;padding:clamp(16px,2.2vh,26px) clamp(20px,2.4vw,38px);
+  font-size:clamp(15px,1.8vw,29px);font-weight:800;line-height:1.45;
   box-shadow:0 20px 44px -26px rgba(11,27,51,.65);
 }
 
