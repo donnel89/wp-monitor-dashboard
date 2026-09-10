@@ -82,13 +82,34 @@ h2.title{
 .nav button{
   width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
   background:var(--white);color:var(--blue);cursor:pointer;
-  font-size:17px;line-height:1;display:grid;place-items:center;
+  font-size:17px;font-weight:700;line-height:1;display:grid;place-items:center;
   box-shadow:0 2px 8px rgba(37,99,235,.10);transition:.18s;
+}
+.nav button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.nav button svg{
+  width:52%;height:52%;display:block;
+  fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
 }
 .nav button:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
 .nav button:disabled{opacity:.32;cursor:default;background:#fff;color:var(--blue)}
 .counter{font-size:12.5px;font-weight:700;color:var(--gray-soft);min-width:38px;text-align:center;direction:ltr}
 .progress{position:fixed;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--violet),var(--blue));z-index:40;transition:width .38s ease}
+
+/* ===== כפתורי ניווט גדולים ===== */
+@media (min-width:781px){
+  .nav button{
+    position:fixed;top:50%;transform:translateY(-50%);z-index:35;
+    width:clamp(58px,4.8vw,88px);height:clamp(58px,4.8vw,88px);
+    font-size:clamp(28px,2.6vw,46px);
+    border-width:2px;
+    box-shadow:0 14px 32px -16px rgba(11,27,51,.45);
+  }
+  .nav #prev{right:clamp(14px,1.6vw,34px)}
+  .nav #next{left:clamp(14px,1.6vw,34px)}
+  .nav button:hover:not(:disabled){transform:translateY(-50%) scale(1.07)}
+  .nav button:active:not(:disabled){transform:translateY(-50%) scale(.96)}
+  .nav button:disabled{opacity:.28}
+}
 
 /* ===== שקופית פתיחה ===== */
 .cover{justify-content:center;align-items:center}
@@ -246,14 +267,20 @@ h2.title{
 }
 
 /* ===== מובייל ===== */
+@media (min-width:781px){
+  .slide{padding-left:clamp(108px,8.5vw,170px);padding-right:clamp(108px,8.5vw,170px)}
+}
+
 @media (max-width:780px){
   .grid3,.steps,.nots{grid-template-columns:1fr}
+  .nav button{width:54px;height:54px;font-size:26px;border-width:2px}
+  .chrome{gap:10px}
   .grid3{gap:9px}
   .row{grid-template-columns:1fr;gap:3px;text-align:right}
   .row .ar{display:none}
   .row .act::before{content:"← ";color:var(--sky)}
   .cover p{max-width:100%}
-  .slide{padding-bottom:78px}
+  .slide{padding-bottom:94px}
   .brand{display:none}
   .step{padding:14px 16px}
   .step .n{margin-bottom:8px}
@@ -392,9 +419,9 @@ h2.title{
   <span class="brand">STRA | מקצוענות כסטנדרט עבודה</span>
   <div class="dots" id="dots"></div>
   <div class="nav">
-    <button id="prev" aria-label="שקופית קודמת">›</button>
+    <button id="prev" aria-label="שקופית קודמת" title="שקופית קודמת"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 16.5 12 9 19.5"/></svg></button>
     <span class="counter" id="counter">1 / 9</span>
-    <button id="next" aria-label="שקופית הבאה">‹</button>
+    <button id="next" aria-label="שקופית הבאה" title="שקופית הבאה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5 7.5 12 15 19.5"/></svg></button>
   </div>
 </div>
 
