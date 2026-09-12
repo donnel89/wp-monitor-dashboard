@@ -122,6 +122,15 @@
   #recStop{padding:14px 34px;border-radius:99px;border:none;background:var(--acc);color:#0a0f22;
     font-size:15px;font-weight:700;cursor:pointer}
   #recCancel{background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;text-decoration:underline}
+  #recLive{display:flex;flex-direction:column;align-items:center;gap:18px}
+  #recLive[hidden]{display:none}
+  #recMsg{color:#fca5a5;font-size:13px;line-height:1.9;max-width:320px;
+    background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:14px;padding:12px 14px}
+  #recMsg[hidden]{display:none}
+  #upBtn{padding:14px 30px;border-radius:99px;border:1px solid var(--line);background:var(--card);
+    color:var(--txt);font-size:14px;font-weight:600;cursor:pointer}
+  #upBtn:active{transform:scale(.96)}
+  #upNote{color:var(--mut);font-size:12px;line-height:1.8;max-width:320px}
 
   /* ---- מצב לילה ---- */
   #dim{position:fixed;inset:0;z-index:50;background:#000;display:none;
@@ -188,14 +197,20 @@
 </div>
 
 <div id="rec">
-  <h2>הקליטו את הששש שלכם</h2>
-  <p>קרבו את הפה לטלפון ועשו ששש חזק ומחוספס, ברצף, בין 20 ל‑30 שניות.
+  <h2 id="recTitle">הקליטו את הששש שלכם</h2>
+  <p id="recHelp">קרבו את הפה לטלפון ועשו ששש חזק ומחוספס, ברצף, בין 20 ל‑30 שניות.
      ההקלטה נשמרת רק במכשיר שלכם.</p>
-  <div id="recDot">🎙️</div>
-  <div id="meter"><div id="meterFill"></div></div>
-  <div id="recTime">0:00</div>
-  <button id="recStop">סיימתי</button>
-  <button id="recCancel">ביטול</button>
+  <p id="recMsg" hidden></p>
+  <div id="recLive">
+    <div id="recDot">🎙️</div>
+    <div id="meter"><div id="meterFill"></div></div>
+    <div id="recTime">0:00</div>
+    <button id="recStop">סיימתי</button>
+  </div>
+  <button id="upBtn">📁 העלאת קובץ שמע</button>
+  <p id="upNote">אפשר להקליט באפליקציית ההקלטות של הטלפון ולהעלות את הקובץ לכאן.</p>
+  <input type="file" id="upInput" accept="audio/*" hidden>
+  <button id="recCancel">סגירה</button>
 </div>
 
 <div id="dim">
@@ -581,11 +596,18 @@ function idb(mode,fn){
 /* חיתוך וחפיפה בקצוות כדי שהלולאה לא תישמע כמו קפיצה */
 function loopify(b){
   const sr=b.sampleRate;
-  const fade=Math.min(Math.floor(sr*0.4),Math.floor(b.length/3));
-  const len=b.length-fade;
+  const MAXS=Math.floor(sr*60);                 /* עד דקה, שלא יתפוס זיכרון מיותר */
+  const total=Math.min(b.length,MAXS);
+  const mono=new Float32Array(total);           /* מיזוג כל הערוצים למונו */
+  for(let c=0;c<b.numberOfChannels;c++){
+    const ch=b.getChannelData(c);
+    for(let i=0;i<total;i++) mono[i]+=ch[i]/b.numberOfChannels;
+  }
+  const fade=Math.min(Math.floor(sr*0.4),Math.floor(total/3));
+  const len=total-fade;
   if(len<sr*0.5) return b;
   const out=ctx.createBuffer(1,len,sr);
-  const src=b.getChannelData(0), d=out.getChannelData(0);
+  const src=mono, d=out.getChannelData(0);
   for(let i=0;i<len;i++) d[i]=src[i];
   for(let i=0;i<fade;i++){ const t=i/fade; d[i]=d[i]*t+src[len+i]*(1-t); }
   let peak=0;
@@ -614,14 +636,42 @@ async function prepareRec(blob){
   recBuffer=loopify(raw);
 }
 
+function openRecUI(live){
+  document.getElementById('rec').classList.add('show');
+  document.getElementById('recLive').hidden=!live;
+  document.getElementById('recHelp').hidden=!live;
+}
+function showRecError(e){
+  const n=(e&&e.name)||'', m=(e&&e.message)||'';
+  let txt;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
+    txt='הדפדפן הזה לא מאפשר הקלטה בדף הנוכחי.';
+  else if(n==='NotAllowedError'&&/permission|policy|disallow/i.test(m))
+    txt='הדף מוצג בתוך מסגרת שחוסמת מיקרופון, ולכן אי אפשר להקליט כאן.';
+  else if(n==='NotAllowedError')
+    txt='הגישה למיקרופון נדחתה. אפשר לאשר אותה בהגדרות האתר בדפדפן ולנסות שוב.';
+  else if(n==='NotFoundError') txt='לא נמצא מיקרופון במכשיר.';
+  else if(n==='NotReadableError') txt='המיקרופון תפוס על ידי אפליקציה אחרת.';
+  else txt='ההקלטה נכשלה'+(n?' ('+n+')':'')+'.';
+  const el=document.getElementById('recMsg');
+  el.textContent=txt+' במקום זה אפשר להעלות קובץ שמע.';
+  el.hidden=false;
+  document.getElementById('recTitle').textContent='אי אפשר להקליט כאן';
+  openRecUI(false);
+}
+
 async function startRec(){
+  document.getElementById('recMsg').hidden=true;
+  document.getElementById('recTitle').textContent='הקליטו את הששש שלכם';
   let stream;
   try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
+      throw {name:'Unsupported',message:'no mediaDevices'};
     /* ביטול הפחתת הרעש הוא קריטי: היא נועדה למחוק בדיוק צלילים כמו ששש */
     stream=await navigator.mediaDevices.getUserMedia({audio:{
       echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
   }catch(e){
-    alert('לא הצלחנו לגשת למיקרופון. יש לאשר גישה בהגדרות הדפדפן.');
+    showRecError(e);
     return;
   }
   if(playing) pause();
@@ -636,7 +686,7 @@ async function startRec(){
   mediaRec.onstop=finishRec;
   mediaRec.start();
   recStart=Date.now();
-  document.getElementById('rec').classList.add('show');
+  openRecUI(true);
   const buf=new Float32Array(recAnalyser.fftSize);
   recUI=setInterval(()=>{
     recAnalyser.getFloatTimeDomainData(buf);
@@ -651,6 +701,7 @@ async function startRec(){
 function closeRecUI(){
   clearInterval(recUI); recUI=null;
   document.getElementById('rec').classList.remove('show');
+  document.getElementById('recMsg').hidden=true;
   document.getElementById('meterFill').style.width='0%';
   if(recStream){ recStream.getTracks().forEach(t=>t.stop()); recStream=null; }
 }
@@ -677,6 +728,23 @@ async function finishRec(){
   }
   addMineTile();
   currentId='mine'; save(); play();
+}
+
+async function useAudioFile(file){
+  if(!file) return;
+  const msg=document.getElementById('recMsg');
+  msg.textContent='מעבד את הקובץ...'; msg.hidden=false;
+  try{
+    await prepareRec(file);
+    await idb('readwrite',st=>st.put(file,'mine'));
+  }catch(e){
+    msg.textContent='לא הצלחנו לקרוא את הקובץ. נסו קובץ שמע אחר, למשל m4a, mp3 או wav.';
+    return;
+  }
+  msg.hidden=true;
+  closeRecUI();
+  addMineTile();
+  currentId='mine'; save(); play(); render();
 }
 
 async function deleteRec(){
@@ -781,6 +849,12 @@ function renderSounds(){
   document.getElementById('recBtn').addEventListener('click',startRec);
   document.getElementById('recStop').addEventListener('click',stopRec);
   document.getElementById('recCancel').addEventListener('click',cancelRec);
+  document.getElementById('upBtn').addEventListener('click',
+    ()=>document.getElementById('upInput').click());
+  document.getElementById('upInput').addEventListener('change',e=>{
+    const f=e.target.files[0]; e.target.value='';
+    useAudioFile(f);
+  });
 
   /* מסך דולק */
   document.getElementById('lockBtn').addEventListener('click',()=>{
