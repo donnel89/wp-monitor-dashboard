@@ -128,13 +128,10 @@
     background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:14px;padding:12px 14px}
   #recMsg.info{color:var(--mut);background:rgba(255,255,255,.05);border-color:var(--line)}
   #recMsg[hidden]{display:none}
-  #capBtn{padding:15px 34px;border-radius:99px;border:none;background:var(--acc);color:#0a0f22;
+  #upBtn{padding:15px 34px;border-radius:99px;border:none;background:var(--acc);color:#0a0f22;
     font-size:15px;font-weight:700;cursor:pointer}
-  #capBtn:active{transform:scale(.96)}
-  #upBtn{padding:12px 26px;border-radius:99px;border:1px solid var(--line);background:var(--card);
-    color:var(--txt);font-size:13px;font-weight:600;cursor:pointer}
   #upBtn:active{transform:scale(.96)}
-  #capBtn[hidden],#upBtn[hidden]{display:none}
+  #upBtn[hidden]{display:none}
   #upNote{color:var(--mut);font-size:12px;line-height:1.8;max-width:320px}
 
   /* ---- מצב לילה ---- */
@@ -212,11 +209,10 @@
     <div id="recTime">0:00</div>
     <button id="recStop">סיימתי</button>
   </div>
-  <button id="capBtn">🎙️ הקלטה במכשיר</button>
-  <button id="upBtn">📁 בחירת קובץ שמור</button>
+  <button id="upBtn">🎵 בחירת הקלטה מהטלפון</button>
   <p id="upNote"></p>
-  <input type="file" id="capInput" accept="audio/*" capture="microphone" hidden>
-  <input type="file" id="upInput" accept="audio/*" hidden>
+  <input type="file" id="upInput"
+    accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.caf,.amr,.opus" hidden>
   <button id="recCancel">סגירה</button>
 </div>
 
@@ -643,43 +639,32 @@ async function prepareRec(blob){
   recBuffer=loopify(raw);
 }
 
-/* בתוך מסגרת אין גישה למיקרופון, ולכן פונים ישר למקליט של הטלפון */
-const inFrame=(()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
-
 function openRecUI(live){
   document.getElementById('rec').classList.add('show');
   document.getElementById('recLive').hidden=!live;
   document.getElementById('recHelp').hidden=!live;
-  document.getElementById('capBtn').hidden=live;
   document.getElementById('upBtn').hidden=live;
   document.getElementById('upNote').textContent=live?'':
-    'הקישו על הקלטה במכשיר. תיפתח אפליקציית ההקלטות של הטלפון, ' +
-    'הקליטו ששש ברצף בין 20 ל‑30 שניות ושמרו. הקובץ יחזור לכאן.';
+    'הקליטו ששש ברצף בין 20 ל‑30 שניות באפליקציית ההקלטות של הטלפון, ' +
+    'ואז בחרו כאן את הקובץ שנשמר.';
 }
+const inFrame=(()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
 
-function deviceMode(note){
-  const el=document.getElementById('recMsg');
-  el.textContent=note;
-  el.className='info';
-  el.hidden=false;
-  document.getElementById('recTitle').textContent='הקלטת הששש שלכם';
-  openRecUI(false);
-}
 function showRecError(e){
   const n=(e&&e.name)||'', m=(e&&e.message)||'';
   let txt;
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
-    txt='הדפדפן הזה לא מאפשר הקלטה בדף הנוכחי.';
-  else if(n==='NotAllowedError'&&/permission|policy|disallow/i.test(m))
-    txt='הדף מוצג בתוך מסגרת שחוסמת מיקרופון, ולכן אי אפשר להקליט כאן.';
+    txt='הדפדפן הזה לא מאפשר הקלטה ישירה בדף הנוכחי.';
+  else if(n==='NotAllowedError'&&inFrame)
+    txt='אין גישה למיקרופון, כנראה מפני שהדף מוצג בתוך מסגרת.';
   else if(n==='NotAllowedError')
     txt='הגישה למיקרופון נדחתה. אפשר לאשר אותה בהגדרות האתר בדפדפן ולנסות שוב.';
   else if(n==='NotFoundError') txt='לא נמצא מיקרופון במכשיר.';
   else if(n==='NotReadableError') txt='המיקרופון תפוס על ידי אפליקציה אחרת.';
   else txt='ההקלטה נכשלה'+(n?' ('+n+')':'')+'.';
   const el=document.getElementById('recMsg');
-  el.textContent=txt+' אפשר להקליט דרך אפליקציית ההקלטות של הטלפון.';
-  el.className='';
+  el.textContent=txt;
+  el.className='info';
   el.hidden=false;
   document.getElementById('recTitle').textContent='הקלטת הששש שלכם';
   openRecUI(false);
@@ -688,10 +673,6 @@ function showRecError(e){
 async function startRec(){
   document.getElementById('recMsg').hidden=true;
   document.getElementById('recTitle').textContent='הקליטו את הששש שלכם';
-  if(inFrame){
-    deviceMode('הדף מוצג בתוך מסגרת, ולכן ההקלטה נעשית דרך אפליקציית ההקלטות של הטלפון.');
-    return;
-  }
   let stream;
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
@@ -879,14 +860,12 @@ function renderSounds(){
   document.getElementById('recBtn').addEventListener('click',startRec);
   document.getElementById('recStop').addEventListener('click',stopRec);
   document.getElementById('recCancel').addEventListener('click',cancelRec);
-  const pick=(id)=>()=>document.getElementById(id).click();
-  document.getElementById('capBtn').addEventListener('click',pick('capInput'));
-  document.getElementById('upBtn').addEventListener('click',pick('upInput'));
-  ['capInput','upInput'].forEach(id=>
-    document.getElementById(id).addEventListener('change',e=>{
-      const f=e.target.files[0]; e.target.value='';
-      useAudioFile(f);
-    }));
+  document.getElementById('upBtn').addEventListener('click',
+    ()=>document.getElementById('upInput').click());
+  document.getElementById('upInput').addEventListener('change',e=>{
+    const f=e.target.files[0]; e.target.value='';
+    useAudioFile(f);
+  });
 
   /* מסך דולק */
   document.getElementById('lockBtn').addEventListener('click',()=>{
