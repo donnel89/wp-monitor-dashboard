@@ -1,0 +1,10 @@
+{
+  "appId": "app.shush.baby",
+  "appName": "שששש",
+  "webDir": "www",
+  "ios": {
+    "backgroundColor": "#070b18",
+    "contentInset": "never",
+    "scrollEnabled": false
+  }
+}

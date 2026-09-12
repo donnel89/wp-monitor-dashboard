@@ -914,7 +914,8 @@ function save(){
 restoreRec();
 
 /* --- PWA --- */
-if('serviceWorker' in navigator){
+/* בתוך אפליקציית iOS אין סכמת http ואין Service Worker, והקבצים ממילא מקומיים */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 let deferredPrompt=null;

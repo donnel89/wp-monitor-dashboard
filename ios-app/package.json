@@ -1,0 +1,19 @@
+{
+  "name": "shush-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "עטיפת iOS לאפליקציית שששש",
+  "scripts": {
+    "copy-web": "node scripts/copy-web.mjs",
+    "prepare-ios": "npm run copy-web && npx cap add ios && node scripts/patch-ios.mjs && npx cap sync ios",
+    "sync": "npm run copy-web && npx cap sync ios && node scripts/patch-ios.mjs",
+    "open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}
