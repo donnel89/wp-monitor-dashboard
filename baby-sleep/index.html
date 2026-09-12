@@ -58,6 +58,11 @@
   .snd .n{font-size:12px;font-weight:600;color:var(--txt)}
   .snd.on{background:var(--card-on);border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 8px 26px -12px var(--acc)}
   .snd.on .n{color:var(--acc)}
+  .snd{position:relative}
+  .snd .del{position:absolute;top:5px;left:6px;width:22px;height:22px;border-radius:50%;
+    border:none;background:rgba(0,0,0,.35);color:var(--mut);font-size:13px;line-height:1;cursor:pointer;
+    display:grid;place-items:center}
+  .snd .del:active{background:rgba(0,0,0,.6)}
 
   .player{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:2px}
   #playBtn{width:116px;height:116px;border-radius:50%;border:none;cursor:pointer;
@@ -101,6 +106,22 @@
   .tool[hidden]{display:none}
 
   footer{text-align:center;color:var(--mut);font-size:11px;line-height:1.7;margin-top:auto;padding-top:8px}
+
+  /* ---- הקלטה ---- */
+  #rec{position:fixed;inset:0;z-index:60;background:rgba(7,11,24,.96);display:none;
+    align-items:center;justify-content:center;flex-direction:column;gap:22px;padding:28px;text-align:center}
+  #rec.show{display:flex}
+  #rec h2{font-size:20px;font-weight:800}
+  #rec p{color:var(--mut);font-size:13px;line-height:1.9;max-width:320px}
+  #recDot{width:74px;height:74px;border-radius:50%;background:#ef4444;display:grid;place-items:center;
+    font-size:28px;box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:rec 1.6s ease-out infinite}
+  @keyframes rec{0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}100%{box-shadow:0 0 0 28px rgba(239,68,68,0)}}
+  #meter{width:min(300px,80vw);height:10px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+  #meterFill{height:100%;width:0%;background:linear-gradient(90deg,var(--acc),var(--warm));transition:width .08s}
+  #recTime{font-size:30px;font-weight:300;font-variant-numeric:tabular-nums;color:var(--warm)}
+  #recStop{padding:14px 34px;border-radius:99px;border:none;background:var(--acc);color:#0a0f22;
+    font-size:15px;font-weight:700;cursor:pointer}
+  #recCancel{background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;text-decoration:underline}
 
   /* ---- מצב לילה ---- */
   #dim{position:fixed;inset:0;z-index:50;background:#000;display:none;
@@ -154,6 +175,7 @@
   </section>
 
   <section class="tools">
+    <button class="tool" id="recBtn">🎙️ הקליטו ששש</button>
     <button class="tool" id="dimBtn">🌑 מצב לילה</button>
     <button class="tool" id="lockBtn">💡 מסך דולק</button>
     <button class="tool" id="installBtn" hidden>⬇️ התקנה</button>
@@ -163,6 +185,17 @@
     כל הצלילים נוצרים במכשיר — עובד גם ללא אינטרנט.<br>
     מומלץ להניח את הטלפון במרחק של כמטר מהמיטה ובעוצמה נמוכה.
   </footer>
+</div>
+
+<div id="rec">
+  <h2>הקליטו את הששש שלכם</h2>
+  <p>קרבו את הפה לטלפון ועשו ששש חזק ומחוספס, ברצף, בין 20 ל‑30 שניות.
+     ההקלטה נשמרת רק במכשיר שלכם.</p>
+  <div id="recDot">🎙️</div>
+  <div id="meter"><div id="meterFill"></div></div>
+  <div id="recTime">0:00</div>
+  <button id="recStop">סיימתי</button>
+  <button id="recCancel">ביטול</button>
 </div>
 
 <div id="dim">
@@ -286,57 +319,64 @@ function buildFiltered(out,buf,type,freq,q,gain){
 }
 
 function buildShush(out){
-  /* שששש אנושי: רעש לבן שמעוצב לתהודת הפה של העיצור ש',
-     עם מעטפת נשימה משתנה, רעד עדין ושאיפה שקטה בין הנשיפות */
-  const s=srcOf('white');
-  const hp=filt('highpass',1250,0.7);
-  const p1=filt('peaking',2450,1.0);  p1.gain.value=12;   /* תהודת הלשון והחך */
-  const p2=filt('peaking',4700,1.7);  p2.gain.value=7;    /* הברק של העיצור */
-  const lp=filt('lowpass',9000,0.6);
-  const trm=ctx.createGain(); trm.gain.value=1;           /* רעד הנשימה */
-  const g=ctx.createGain();   g.gain.value=0.001;         /* מעטפת הנשיפה */
-  const og=ctx.createGain();  og.gain.value=0.15;         /* איזון עוצמה מול שאר הצלילים */
+  /* שששש של אמא: מרכז האנרגיה נמוך - זה מה שתינוק שמע ברחם, שם כל מה
+     שמעל 500 הרץ נחלש. מרקם מחוספס, נדבך חזה עמוק, וכמעט בלי שתיקה */
+  const s=srcOf('pink');
+  const hp=filt('highpass',320,0.7);
+  const p1=filt('peaking',880,0.9);   p1.gain.value=9;   /* חלל הפה */
+  const p2=filt('peaking',1900,1.2);  p2.gain.value=4;   /* נוכחות עדינה */
+  const lp=filt('lowpass',4800,0.5);                     /* בלי שריקה חדה */
+  const trm=ctx.createGain(); trm.gain.value=1;
+  const g=ctx.createGain();   g.gain.value=0.001;
+  const og=ctx.createGain();  og.gain.value=0.50;
   s.connect(hp); hp.connect(p1); p1.connect(p2); p2.connect(lp);
   lp.connect(trm); trm.connect(g); g.connect(og); og.connect(out); s.start();
-  const trem=lfo(5.2,0.05,trm.gain,1);
 
-  /* נתיב השאיפה: רעש כהה ושקט, נשמע כמו לקיחת אוויר לפני הנשיפה הבאה */
-  const s2=srcOf('white');
-  const ihp=filt('highpass',380);
-  const ilp=filt('lowpass',1500,0.7);
-  const ig=ctx.createGain(); ig.gain.value=0.001;
+  /* מערבולת האוויר: שלושה קצבים לא מסונכרנים יוצרים חספוס טבעי */
+  const t1=lfo(3.1,0.05,trm.gain,1), t2=lfo(5.7,0.035,trm.gain), t3=lfo(8.9,0.02,trm.gain);
+
+  /* נדבך החזה: רעש עמוק ורציף שנותן גוף לצליל */
+  const b=srcOf('brown');
+  const blp=filt('lowpass',220,0.7);
+  const bg=ctx.createGain(); bg.gain.value=0.55;
+  b.connect(blp); blp.connect(bg); bg.connect(og); b.start();
+
+  /* השאיפה ממלאת את הרווח, כך שאף פעם אין שקט מוחלט */
+  const s2=srcOf('pink');
+  const ihp=filt('highpass',260);
+  const ilp=filt('lowpass',1100,0.7);
+  const ig=ctx.createGain(); ig.gain.value=0.02;
   s2.connect(ihp); ihp.connect(ilp); ilp.connect(ig); ig.connect(og); s2.start();
 
   const rnd=(a,b)=>a+Math.random()*(b-a);
   let next=ctx.currentTime+0.15;
   const tick=()=>{
-    while(next<ctx.currentTime+1.6){
+    while(next<ctx.currentTime+2.0){
       const t=next;
-      /* כל נשיפה מעט שונה מקודמתה - כמו אצל אדם אמיתי */
-      const dur=rnd(1.15,1.55), gap=rnd(0.55,0.80);
-      const amp=rnd(1.5,1.85), atk=rnd(0.16,0.24), rel=0.26;
+      const dur=rnd(1.7,2.3), gap=rnd(0.22,0.40);
+      const amp=rnd(1.5,1.8), atk=rnd(0.18,0.26), rel=0.30;
 
-      g.gain.setValueAtTime(0.02,t);
+      g.gain.setValueAtTime(0.08,t);
       g.gain.linearRampToValueAtTime(amp,t+atk);
-      g.gain.linearRampToValueAtTime(amp*0.6,t+dur-rel);   /* האוויר הולך ונגמר */
-      g.gain.exponentialRampToValueAtTime(0.02,t+dur);
+      g.gain.linearRampToValueAtTime(amp*0.62,t+dur-rel);  /* האוויר נחלש */
+      g.gain.exponentialRampToValueAtTime(0.08,t+dur);
 
-      /* עם היחלשות האוויר הצליל מתעמעם ויורד בתדר */
-      p1.frequency.setValueAtTime(rnd(2350,2600),t);
-      p1.frequency.linearRampToValueAtTime(rnd(2050,2250),t+dur);
-      lp.frequency.setValueAtTime(9200,t);
-      lp.frequency.linearRampToValueAtTime(6800,t+dur);
+      p1.frequency.setValueAtTime(rnd(820,950),t);
+      p1.frequency.linearRampToValueAtTime(rnd(680,780),t+dur);
+      lp.frequency.setValueAtTime(5200,t);
+      lp.frequency.linearRampToValueAtTime(3600,t+dur);
 
-      const it=t+dur+gap*0.30;
-      ig.gain.setValueAtTime(0.002,it);
-      ig.gain.linearRampToValueAtTime(rnd(0.10,0.16),it+gap*0.30);
-      ig.gain.exponentialRampToValueAtTime(0.002,it+gap*0.62);
+      const it=t+dur;
+      ig.gain.setValueAtTime(0.02,it);
+      ig.gain.linearRampToValueAtTime(rnd(0.18,0.26),it+gap*0.5);
+      ig.gain.exponentialRampToValueAtTime(0.02,it+gap);
 
       next+=dur+gap;
     }
   };
   tick();
-  return {nodes:[s,hp,p1,p2,lp,trm,g,og,...trem,s2,ihp,ilp,ig],timers:[setInterval(tick,400)]};
+  return {nodes:[s,hp,p1,p2,lp,trm,g,og,...t1,...t2,...t3,b,blp,bg,s2,ihp,ilp,ig],
+          timers:[setInterval(tick,400)]};
 }
 
 function buildRain(out){
@@ -519,6 +559,152 @@ function updateMediaSession(){
   }catch(e){}
 }
 
+/* ================== הקלטה עצמית ================== */
+/* ההקלטה של הורה אמיתי עדיפה על כל סינתזה - זה הקול שהתינוק כבר מכיר */
+let recBuffer=null, mediaRec=null, recChunks=[], recStream=null,
+    recAnalyser=null, recStart=0, recUI=null;
+const REC_MAX=30000;
+
+function idb(mode,fn){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('shush',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('rec');
+    r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>{
+      const db=r.result, tx=db.transaction('rec',mode), q=fn(tx.objectStore('rec'));
+      tx.oncomplete=()=>{ db.close(); res(q&&q.result); };
+      tx.onerror=()=>{ db.close(); rej(tx.error); };
+    };
+  });
+}
+
+/* חיתוך וחפיפה בקצוות כדי שהלולאה לא תישמע כמו קפיצה */
+function loopify(b){
+  const sr=b.sampleRate;
+  const fade=Math.min(Math.floor(sr*0.4),Math.floor(b.length/3));
+  const len=b.length-fade;
+  if(len<sr*0.5) return b;
+  const out=ctx.createBuffer(1,len,sr);
+  const src=b.getChannelData(0), d=out.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=src[i];
+  for(let i=0;i<fade;i++){ const t=i/fade; d[i]=d[i]*t+src[len+i]*(1-t); }
+  let peak=0;
+  for(let i=0;i<len;i++) peak=Math.max(peak,Math.abs(d[i]));
+  if(peak>0){ const k=0.9/peak; for(let i=0;i<len;i++) d[i]*=k; }
+  return out;
+}
+
+function buildMine(out){
+  const s=ctx.createBufferSource();
+  s.buffer=recBuffer; s.loop=true;
+  const g=ctx.createGain(); g.gain.value=1;
+  s.connect(g); g.connect(out); s.start();
+  return {nodes:[s,g],timers:[]};
+}
+const MINE={id:'mine', e:'🎙️', n:'ההקלטה שלי', build:buildMine, own:true};
+
+function addMineTile(){
+  if(!SOUNDS.some(x=>x.id==='mine')) SOUNDS.unshift(MINE);
+  renderSounds();
+}
+
+async function prepareRec(blob){
+  initCtx();
+  const raw=await ctx.decodeAudioData(await blob.arrayBuffer());
+  recBuffer=loopify(raw);
+}
+
+async function startRec(){
+  let stream;
+  try{
+    /* ביטול הפחתת הרעש הוא קריטי: היא נועדה למחוק בדיוק צלילים כמו ששש */
+    stream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  }catch(e){
+    alert('לא הצלחנו לגשת למיקרופון. יש לאשר גישה בהגדרות הדפדפן.');
+    return;
+  }
+  if(playing) pause();
+  initCtx();
+  if(ctx.state==='suspended') await ctx.resume();
+  recStream=stream; recChunks=[];
+  const srcNode=ctx.createMediaStreamSource(stream);
+  recAnalyser=ctx.createAnalyser(); recAnalyser.fftSize=1024;
+  srcNode.connect(recAnalyser);            /* למדידה בלבד, לא ליציאה */
+  mediaRec=new MediaRecorder(stream);
+  mediaRec.ondataavailable=e=>{ if(e.data.size) recChunks.push(e.data); };
+  mediaRec.onstop=finishRec;
+  mediaRec.start();
+  recStart=Date.now();
+  document.getElementById('rec').classList.add('show');
+  const buf=new Float32Array(recAnalyser.fftSize);
+  recUI=setInterval(()=>{
+    recAnalyser.getFloatTimeDomainData(buf);
+    let mx=0; for(const v of buf) mx=Math.max(mx,Math.abs(v));
+    document.getElementById('meterFill').style.width=Math.min(100,mx*140)+'%';
+    const el=(Date.now()-recStart)/1000;
+    document.getElementById('recTime').textContent=fmt(el);
+    if(el*1000>=REC_MAX) stopRec();
+  },80);
+}
+
+function closeRecUI(){
+  clearInterval(recUI); recUI=null;
+  document.getElementById('rec').classList.remove('show');
+  document.getElementById('meterFill').style.width='0%';
+  if(recStream){ recStream.getTracks().forEach(t=>t.stop()); recStream=null; }
+}
+function stopRec(){
+  if(mediaRec && mediaRec.state==='recording') mediaRec.stop();
+  else closeRecUI();
+}
+function cancelRec(){
+  if(mediaRec && mediaRec.state==='recording'){ mediaRec.onstop=closeRecUI; mediaRec.stop(); }
+  else closeRecUI();
+}
+
+async function finishRec(){
+  const secs=(Date.now()-recStart)/1000;
+  closeRecUI();
+  if(secs<3){ alert('ההקלטה קצרה מדי. נסו שוב והקליטו לפחות שלוש שניות.'); return; }
+  const blob=new Blob(recChunks,{type:mediaRec.mimeType||'audio/webm'});
+  try{
+    await prepareRec(blob);
+    await idb('readwrite',st=>st.put(blob,'mine'));
+  }catch(e){
+    alert('ההקלטה לא נשמרה. נסו שוב.');
+    return;
+  }
+  addMineTile();
+  currentId='mine'; save(); play();
+}
+
+async function deleteRec(){
+  if(!confirm('למחוק את ההקלטה?')) return;
+  try{ await idb('readwrite',st=>st.delete('mine')); }catch(e){}
+  recBuffer=null;
+  const i=SOUNDS.findIndex(x=>x.id==='mine');
+  if(i>-1) SOUNDS.splice(i,1);
+  if(currentId==='mine'){ currentId='shush'; save(); if(playing) startSound(currentId); }
+  renderSounds(); render();
+}
+
+async function restoreRec(){
+  if(!('indexedDB' in window)) return;
+  try{
+    const blob=await idb('readonly',st=>st.get('mine'));
+    if(!blob) return;
+    initCtx();
+    await prepareRec(blob);
+    addMineTile();
+    try{
+      const pref=JSON.parse(localStorage.getItem('shush')||'{}');
+      if(pref.currentId==='mine') currentId='mine';
+    }catch(e){}
+    render();
+  }catch(e){}
+}
+
 /* ================== ממשק ================== */
 function render(){
   document.querySelectorAll('.snd').forEach(el=>el.classList.toggle('on',el.dataset.id===currentId));
@@ -533,13 +719,20 @@ function render(){
   v.style.setProperty('--pct',Math.round(volume*100)+'%');
 }
 
-(function buildUI(){
+function renderSounds(){
   document.getElementById('sounds').innerHTML=SOUNDS.map(s=>
-    `<div class="snd" data-id="${s.id}"><div class="e">${s.e}</div><div class="n">${s.n}</div></div>`).join('');
+    `<div class="snd" data-id="${s.id}">${s.own?'<button class="del" aria-label="מחיקת ההקלטה">✕</button>':''}`+
+    `<div class="e">${s.e}</div><div class="n">${s.n}</div></div>`).join('');
+  document.querySelectorAll('.snd').forEach(el=>el.classList.toggle('on',el.dataset.id===currentId));
+}
+
+(function buildUI(){
+  renderSounds();
   document.getElementById('timers').innerHTML=TIMERS.map(t=>
     `<button class="chip" data-m="${t.m}">${t.l}</button>`).join('');
 
   document.getElementById('sounds').addEventListener('click',e=>{
+    if(e.target.closest('.del')){ deleteRec(); return; }
     const el=e.target.closest('.snd'); if(!el) return;
     currentId=el.dataset.id;
     save();
@@ -584,6 +777,11 @@ function render(){
   }
   setInterval(tickClock,10000); tickClock();
 
+  /* הקלטה */
+  document.getElementById('recBtn').addEventListener('click',startRec);
+  document.getElementById('recStop').addEventListener('click',stopRec);
+  document.getElementById('recCancel').addEventListener('click',cancelRec);
+
   /* מסך דולק */
   document.getElementById('lockBtn').addEventListener('click',()=>{
     wakeLock? releaseLock() : requestLock();
@@ -627,6 +825,8 @@ function save(){
   document.getElementById('vol').value=Math.round(volume*100);
   render();
 })();
+
+restoreRec();
 
 /* --- PWA --- */
 if('serviceWorker' in navigator){
