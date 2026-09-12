@@ -186,7 +186,7 @@
 
 /* ================== הגדרות הצלילים ================== */
 const SOUNDS=[
-  {id:'shush', e:'🤫', n:'שששש',      build:buildShush},
+  {id:'shush', e:'🤫', n:'שששש של אמא',      build:buildShush},
   {id:'white', e:'📻', n:'רעש לבן',   build:o=>buildFiltered(o,'white','lowpass',11000,0.7,0.85)},
   {id:'pink',  e:'🌸', n:'רעש ורוד',  build:o=>buildFiltered(o,'pink','lowpass',9000,0.7,1.0)},
   {id:'deep',  e:'🔉', n:'רעש עמוק',  build:o=>buildFiltered(o,'brown','lowpass',700,0.9,1.0)},
@@ -286,27 +286,57 @@ function buildFiltered(out,buf,type,freq,q,gain){
 }
 
 function buildShush(out){
-  const s=srcOf('pink');
-  const bp=filt('bandpass',1900,0.5);
-  const hp=filt('highpass',700);
-  const g=ctx.createGain(); g.gain.value=0.02;
-  s.connect(bp); bp.connect(hp); hp.connect(g); g.connect(out); s.start();
-  let next=ctx.currentTime+0.12;
-  const cycle=2.15;
+  /* שששש אנושי: רעש לבן שמעוצב לתהודת הפה של העיצור ש',
+     עם מעטפת נשימה משתנה, רעד עדין ושאיפה שקטה בין הנשיפות */
+  const s=srcOf('white');
+  const hp=filt('highpass',1250,0.7);
+  const p1=filt('peaking',2450,1.0);  p1.gain.value=12;   /* תהודת הלשון והחך */
+  const p2=filt('peaking',4700,1.7);  p2.gain.value=7;    /* הברק של העיצור */
+  const lp=filt('lowpass',9000,0.6);
+  const trm=ctx.createGain(); trm.gain.value=1;           /* רעד הנשימה */
+  const g=ctx.createGain();   g.gain.value=0.001;         /* מעטפת הנשיפה */
+  const og=ctx.createGain();  og.gain.value=0.15;         /* איזון עוצמה מול שאר הצלילים */
+  s.connect(hp); hp.connect(p1); p1.connect(p2); p2.connect(lp);
+  lp.connect(trm); trm.connect(g); g.connect(og); og.connect(out); s.start();
+  const trem=lfo(5.2,0.05,trm.gain,1);
+
+  /* נתיב השאיפה: רעש כהה ושקט, נשמע כמו לקיחת אוויר לפני הנשיפה הבאה */
+  const s2=srcOf('white');
+  const ihp=filt('highpass',380);
+  const ilp=filt('lowpass',1500,0.7);
+  const ig=ctx.createGain(); ig.gain.value=0.001;
+  s2.connect(ihp); ihp.connect(ilp); ilp.connect(ig); ig.connect(og); s2.start();
+
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  let next=ctx.currentTime+0.15;
   const tick=()=>{
-    while(next<ctx.currentTime+1.2){
+    while(next<ctx.currentTime+1.6){
       const t=next;
-      g.gain.cancelScheduledValues(t);
-      g.gain.setValueAtTime(0.03,t);
-      g.gain.linearRampToValueAtTime(2.5,t+0.28);
-      g.gain.setValueAtTime(2.5,t+0.60);
-      g.gain.exponentialRampToValueAtTime(0.15,t+1.35);
-      g.gain.linearRampToValueAtTime(0.03,t+1.55);
-      next+=cycle;
+      /* כל נשיפה מעט שונה מקודמתה - כמו אצל אדם אמיתי */
+      const dur=rnd(1.15,1.55), gap=rnd(0.55,0.80);
+      const amp=rnd(1.5,1.85), atk=rnd(0.16,0.24), rel=0.26;
+
+      g.gain.setValueAtTime(0.02,t);
+      g.gain.linearRampToValueAtTime(amp,t+atk);
+      g.gain.linearRampToValueAtTime(amp*0.6,t+dur-rel);   /* האוויר הולך ונגמר */
+      g.gain.exponentialRampToValueAtTime(0.02,t+dur);
+
+      /* עם היחלשות האוויר הצליל מתעמעם ויורד בתדר */
+      p1.frequency.setValueAtTime(rnd(2350,2600),t);
+      p1.frequency.linearRampToValueAtTime(rnd(2050,2250),t+dur);
+      lp.frequency.setValueAtTime(9200,t);
+      lp.frequency.linearRampToValueAtTime(6800,t+dur);
+
+      const it=t+dur+gap*0.30;
+      ig.gain.setValueAtTime(0.002,it);
+      ig.gain.linearRampToValueAtTime(rnd(0.10,0.16),it+gap*0.30);
+      ig.gain.exponentialRampToValueAtTime(0.002,it+gap*0.62);
+
+      next+=dur+gap;
     }
   };
   tick();
-  return {nodes:[s,bp,hp,g],timers:[setInterval(tick,400)]};
+  return {nodes:[s,hp,p1,p2,lp,trm,g,og,...trem,s2,ihp,ilp,ig],timers:[setInterval(tick,400)]};
 }
 
 function buildRain(out){
