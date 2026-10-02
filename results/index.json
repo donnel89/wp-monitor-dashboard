@@ -1,7 +1,12 @@
 {
-  "updatedAt": "2026-10-01T13:27:03.074Z",
-  "mode": "monthly",
+  "updatedAt": "2026-10-02T12:02:16.253Z",
+  "mode": "daily",
   "sites": [
+    {
+      "id": "navacollage",
+      "name": "נאוה קולאז'",
+      "baseUrl": "https://navacollage.co.il"
+    },
     {
       "id": "stra - אתר הבית",
       "name": "stra - אתר הבית",
