@@ -1,0 +1,280 @@
+<title>חדר הסוכנים</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: roster board. Summary strip, filter bar, then a 2-col grid of agent cards that expand to show their rules. RTL throughout. */
+:root {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --ink: #1b2233;
+  --muted: #5b6478;
+  --line: #dde1ea;
+  --accent: #b5651d;
+  --accent-soft: #f6e8d9;
+  --chip: #eef0f5;
+  --good: #2e7d4f;
+  --warn: #a8551a;
+  --font-display: "Secular One", "Assistant", system-ui, sans-serif;
+  --font-body: "Assistant", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151d; --surface: #1a1f2b; --ink: #e8ebf2; --muted: #9aa3b7; --line: #2b3242;
+    --accent: #e39a55; --accent-soft: #3a2a1c; --chip: #242b3a; --good: #6fc794; --warn: #e9a06a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151d; --surface: #1a1f2b; --ink: #e8ebf2; --muted: #9aa3b7; --line: #2b3242;
+  --accent: #e39a55; --accent-soft: #3a2a1c; --chip: #242b3a; --good: #6fc794; --warn: #e9a06a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+}
+.wrap {
+  max-width: 1080px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+  display: grid; gap: 28px;
+}
+header { display: grid; gap: 8px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; color: var(--accent); font-weight: 700; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 2px; }
+.stat b { font-family: var(--font-display); font-weight: 400; font-size: 28px; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 14px; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters input {
+  flex: 1 1 220px; min-width: 0; font: inherit; padding: 9px 14px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  font: inherit; font-size: 14px; font-weight: 600; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+section { display: grid; gap: 14px; }
+h2 { font-family: var(--font-display); font-weight: 400; font-size: 22px; margin: 0; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+h2 small { font-family: var(--font-body); font-size: 14px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 14px; align-items: start; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; min-width: 0; }
+.card.mine { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.top { display: flex; gap: 12px; align-items: flex-start; }
+.badge {
+  flex: none; width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); font-family: var(--font-display); font-size: 20px;
+}
+.card.builtin .badge { background: var(--chip); color: var(--muted); }
+.who { display: grid; gap: 2px; min-width: 0; }
+.who h3 { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; }
+.who code { font-family: var(--font-mono); font-size: 13px; color: var(--muted); direction: ltr; unicode-bidi: isolate; overflow-wrap: anywhere; }
+.status { margin-inline-start: auto; flex: none; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.status.ready { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.status.setup { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.role { margin: 0; color: var(--ink); }
+.rule { margin: 0; padding: 10px 14px; background: var(--chip); border-radius: 8px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-mono); font-size: 12px; padding: 3px 8px; border-radius: 6px; background: var(--chip); color: var(--muted); direction: ltr; }
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; font-weight: 700; color: var(--accent); font-size: 15px; }
+details[open] summary { margin-bottom: 8px; }
+.detail { display: grid; gap: 10px; }
+.detail h4 { margin: 0; font-size: 14px; color: var(--muted); letter-spacing: .03em; }
+.detail ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; }
+.tests li { list-style: none; margin-inline-start: -20px; }
+.tests b { color: var(--ink); }
+.call { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.call code {
+  flex: 1 1 220px; min-width: 0; font-family: var(--font-body); font-size: 14px; padding: 8px 12px;
+  background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; overflow-wrap: anywhere;
+}
+.call button {
+  font: inherit; font-size: 14px; font-weight: 700; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--ink); background: transparent; color: var(--ink);
+}
+.empty { color: var(--muted); }
+.install { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 8px; }
+.install ol { margin: 0; padding-inline-start: 22px; display: grid; gap: 6px; }
+.install code { font-family: var(--font-mono); font-size: 13px; background: var(--chip); padding: 1px 6px; border-radius: 4px; direction: ltr; unicode-bidi: isolate; overflow-wrap: anywhere; }
+footer { color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
+</style>
+
+<div dir="rtl" lang="he" class="wrap">
+  <header>
+    <div class="eyebrow">Claude Code · הסוכנים שלי</div>
+    <h1>חדר הסוכנים</h1>
+    <p class="lede">כל הסוכנים שזמינים לך ב־Claude Code: ארבעת סוכני השיווק שבנינו מהמדריך של אימפרוב, והסוכנים שמגיעים מובנים. לחצו על "הכללים והבדיקות" כדי לראות איך כל סוכן מחליט.</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="filters">
+    <input id="q" type="search" placeholder="חיפוש לפי שם, תפקיד או כלי…" aria-label="חיפוש סוכנים">
+    <div class="seg" role="group" aria-label="סינון">
+      <button type="button" data-f="all" aria-pressed="true">הכול</button>
+      <button type="button" data-f="mine" aria-pressed="false">סוכני השיווק</button>
+      <button type="button" data-f="builtin" aria-pressed="false">מובנים</button>
+    </div>
+  </div>
+
+  <section id="sec-mine">
+    <h2>סוכני השיווק <small>קבצים ב־~/.claude/agents</small></h2>
+    <div class="grid" id="grid-mine"></div>
+  </section>
+
+  <section id="sec-builtin">
+    <h2>סוכנים מובנים <small>מגיעים עם Claude Code, בלי התקנה</small></h2>
+    <div class="grid" id="grid-builtin"></div>
+  </section>
+
+  <p class="empty" id="empty" hidden>אין סוכן שמתאים לחיפוש.</p>
+
+  <div class="install">
+    <h2>התקנת סוכני השיווק</h2>
+    <ol>
+      <li>מעתיקים את ארבעת הקבצים מהתיקייה <code>claude-agents/agents</code> אל <code>~/.claude/agents/</code> (ב־Windows: <code>C:\Users\&lt;שם&gt;\.claude\agents\</code>).</li>
+      <li>פותחים מחדש את Claude Code ומקלידים <code>/agents</code>.</li>
+      <li>ממלאים בכל קובץ את מה שבסוגריים המרובעים: העסק, מה נחשב פנייה, המחיר לפנייה.</li>
+    </ol>
+  </div>
+
+  <footer>מקור הכללים: "מה סוכנים באמת יודעים לעשות בסושיאל ובממומן", שלהבת ורדי, אימפרוב.</footer>
+</div>
+
+<script>
+const AGENTS = [
+  { id: "social-content-planner", kind: "mine", letter: "נ", name: "נועה · מתכננת תוכן",
+    role: "מתכננת וכותבת פוסטים לאינסטגרם ולרשתות, ועוקבת איזה פוסט הביא איזו פנייה.",
+    rule: "הצלחה היא פניות, לא לייקים.", status: "setup",
+    tools: ["Read","Write","Edit","Glob","Grep"],
+    rules: ["חלוקה שבועית: 40% קהל חדש, 40% בניית אמון, 20% הצעה","מילת פנייה אחרת בכל פוסט, בלי \"עקבו אחריי\"","תכנון שבועי מתחיל במספר הפניות של השבוע שעבר","לא ממציאה לקוחות, מספרים או המלצות. חסר פרט? [להשלים]","טיוטות בלבד, שום דבר לא עולה בלי \"כן\" שלך"],
+    memory: "agent-notes/content-tracking.md",
+    tests: [["\"תפרסם את זה עכשיו\"","מבקשת אישור"],["\"תכנן לי שבוע\"","פותחת בשאלה מה הביא פניות"]],
+    call: "השתמש בסוכן social-content-planner ותכנן לי שבוע תוכן" },
+  { id: "video-editor", kind: "mine", letter: "ל", name: "ליאור · עורך וידאו",
+    role: "בוחר מתוך תמלול עם זמנים את הצילום הטבעי של כל משפט בתסריט.",
+    rule: "כל \"לא\" שלך שווה שורה בהוראות.", status: "ready",
+    tools: ["Read","Write","Edit","Glob","Grep","Bash"],
+    rules: ["משפט זהה לתסריט ומיד אחריו עוד גרסה הוא הקראה. בוחר את הגרסה שאחריו","מוריד גמגומים, \"רגע\", \"עוד פעם\" ושיחות עם הצלם","35 עד 45 שניות, פנים בפריים, כתוביות של 2 עד 4 מילים","קורא את רשימת \"מה נפסל ולמה\" לפני כל עבודה","כל תיקון נשמר כגרסה חדשה, שום דבר לא נמחק"],
+    memory: "agent-notes/video-rejected.md",
+    tests: [["משהו שכבר פסלת","מזכיר שזה ברשימה"],["תמלול SRT","מחזיר טבלה עם זמנים"]],
+    call: "השתמש בסוכן video-editor על התסריט ועל הקובץ takes.srt" },
+  { id: "meta-ads-manager", kind: "mine", letter: "מ", name: "סוכן הממומנים · מודעות מטא",
+    role: "בודק את המודעות בפייסבוק ובאינסטגרם, מחליט מה לעשות עם כל אחת, כותב מודעות ומפיק דוח שבועי.",
+    rule: "אופטימיזציה טובה היא בעיקר לא לגעת.", status: "setup",
+    tools: ["Read","Write","Edit","Glob","Grep","Bash"],
+    rules: ["סדר החלטה: להשהות ← לחכות ← להחליף תמונה או טקסט ← להגדיל תקציב ← לא לגעת","הוציאה פי 2 מהמחיר לפנייה בלי אף פנייה? להשהות","הגדלת תקציב עד 20%, לא יותר מפעם בשלושה ימים","לא שופט לפי היום או אתמול. קפיצה = \"לבדוק מחר\"","לא מוחק מודעות ולא משנה כלום בלי אישור על השינוי המסוים","12 משפטי פתיחה משמונה סוגים, ובוחר שלושה שונים"],
+    memory: "agent-notes/ads-changelog.md",
+    tests: [["נתונים של יום אחד","\"לחכות\""],["מודעה שהוציאה פי 2 בלי פנייה","\"להשהות\""]],
+    call: "השתמש בסוכן meta-ads-manager כדי לנתח את הקובץ ads.csv" },
+  { id: "competitor-researcher", kind: "mine", letter: "כ", name: "כָּלֵב · חוקר מתחרים",
+    role: "מפרק עמוד של מתחרה בשבע שאלות ומראיין אותך כדי למצוא מה אתה אומר אחרת.",
+    rule: "סוכן טוב לא כותב במקומך. הוא עוזר לך להגיד את מה שרק אתה יודע.", status: "setup",
+    tools: ["Read","Write","Edit","Glob","Grep","WebFetch","WebSearch"],
+    rules: ["מפרק כל עמוד בשבע שאלות: מה נאמר, מה מונח, על איזה פחד לוחצים, מקורות, מה לא נענה, תפיסת עולם, איפה אתה חושב אחרת","שואל כשבע שאלות, אחת בכל פעם, בלי תשובות לבחירה","שומר את התשובות שלך מילה במילה ולא מתקן בשקט","כל טענה של מתחרה היא טענה לבדיקה, לא עובדה"],
+    memory: "agent-notes/my-voice.md",
+    tests: [["\"תכתוב לי פוסט על זה\"","חוזר לשאול אותך"],["קישור לעמוד מתחרה","מפרק בשבע שאלות"]],
+    call: "השתמש בסוכן competitor-researcher על העמוד הזה: [קישור]" },
+  { id: "general-purpose", kind: "builtin", letter: "כ", name: "General purpose",
+    role: "סוכן כללי למשימות מרובות שלבים: מחקר, חיפוש בקוד וביצוע.", status: "ready", tools: ["כל הכלים"],
+    call: "השתמש בסוכן general-purpose כדי…" },
+  { id: "Explore", kind: "builtin", letter: "ח", name: "Explore",
+    role: "סוכן חיפוש לקריאה בלבד. סורק הרבה קבצים ומחזיר רק את המסקנה.", status: "ready", tools: ["קריאה וחיפוש"],
+    call: "השתמש בסוכן Explore כדי למצוא איפה…" },
+  { id: "Plan", kind: "builtin", letter: "ת", name: "Plan",
+    role: "ארכיטקט שבונה תוכנית עבודה צעד אחר צעד לפני שכותבים קוד.", status: "ready", tools: ["קריאה וחיפוש"],
+    call: "השתמש בסוכן Plan כדי לתכנן…" },
+  { id: "claude-code-guide", kind: "builtin", letter: "מ", name: "Claude Code guide",
+    role: "עונה על שאלות על Claude Code, ה־API וה־Agent SDK: פיצ'רים, הגדרות, hooks ו־MCP.", status: "ready", tools: ["Read","WebFetch","WebSearch"],
+    call: "איך מוסיפים hook ב־Claude Code?" },
+  { id: "statusline-setup", kind: "builtin", letter: "ש", name: "Statusline setup",
+    role: "מגדיר את שורת הסטטוס של Claude Code בטרמינל.", status: "ready", tools: ["Read","Edit"],
+    call: "תגדיר לי שורת סטטוס שמציגה את הענף הנוכחי" }
+];
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function card(a) {
+  const status = a.status === "ready"
+    ? '<span class="status ready">מוכן לשימוש</span>'
+    : '<span class="status setup">צריך למלא פרטים</span>';
+  const more = a.kind === "mine" ? `
+    <details>
+      <summary>הכללים והבדיקות</summary>
+      <div class="detail">
+        <h4>כללים</h4>
+        <ul>${a.rules.map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+        <h4>זיכרון</h4>
+        <div><span class="chip">${esc(a.memory)}</span></div>
+        <h4>בדיקה שהוא עובד</h4>
+        <ul class="tests">${a.tests.map(t => `<li>${esc(t[0])} ← <b>${esc(t[1])}</b></li>`).join("")}</ul>
+      </div>
+    </details>` : "";
+  return `<article class="card ${a.kind}" data-kind="${a.kind}" data-text="${esc([a.id, a.name, a.role, a.rule || "", a.tools.join(" ")].join(" ").toLowerCase())}">
+    <div class="top">
+      <div class="badge" aria-hidden="true">${esc(a.letter)}</div>
+      <div class="who"><h3>${esc(a.name)}</h3><code>${esc(a.id)}</code></div>
+      ${status}
+    </div>
+    <p class="role">${esc(a.role)}</p>
+    ${a.rule ? `<p class="rule">${esc(a.rule)}</p>` : ""}
+    <div class="chips">${a.tools.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+    <div class="call"><code>${esc(a.call)}</code><button type="button" data-copy="${esc(a.call)}">העתקה</button></div>
+    ${more}
+  </article>`;
+}
+
+document.getElementById("grid-mine").innerHTML = AGENTS.filter(a => a.kind === "mine").map(card).join("");
+document.getElementById("grid-builtin").innerHTML = AGENTS.filter(a => a.kind === "builtin").map(card).join("");
+
+const mine = AGENTS.filter(a => a.kind === "mine");
+const stats = [
+  [AGENTS.length, "סוכנים זמינים"],
+  [mine.length, "סוכני שיווק שבנינו"],
+  [mine.reduce((n, a) => n + a.rules.length, 0), "כללים כתובים"],
+  [mine.filter(a => a.status === "setup").length, "מחכים לפרטי העסק"]
+];
+document.getElementById("stats").innerHTML = stats.map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
+
+let filter = "all";
+function apply() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  let shown = 0;
+  document.querySelectorAll(".card").forEach(c => {
+    const ok = (filter === "all" || c.dataset.kind === filter) && (!q || c.dataset.text.includes(q));
+    c.hidden = !ok; if (ok) shown++;
+  });
+  ["mine", "builtin"].forEach(k => {
+    document.getElementById("sec-" + k).hidden = !document.querySelector(`#grid-${k} .card:not([hidden])`);
+  });
+  document.getElementById("empty").hidden = shown > 0;
+}
+document.getElementById("q").addEventListener("input", apply);
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  apply();
+}));
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  const done = () => { b.textContent = "הועתק"; setTimeout(() => b.textContent = "העתקה", 1500); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents(b.previousElementSibling); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "סמנו והעתיקו"; };
+  try { navigator.clipboard.writeText(b.dataset.copy).then(done, fallback); } catch (_) { fallback(); }
+});
+</script>
