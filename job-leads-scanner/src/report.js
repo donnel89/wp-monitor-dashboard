@@ -4,6 +4,7 @@ const CATEGORY_LABELS = {
   direct: "חברה ישירה",
   "via-recruiter": "דרך השמה / חסוי",
   agency: "סוכנות",
+  tender: "מכרז",
   irrelevant: "לא רלוונטי",
 };
 
@@ -20,6 +21,11 @@ export function renderReport(leads, { generatedAt, hotLeadScore }) {
       publishedAt: l.publishedAt,
       firstSeen: l.firstSeen,
       url: l.url,
+      kind: l.kind || "job",
+      deadline: l.deadline,
+      tenderType: l.tenderType,
+      contactName: l.contactName,
+      contactEmail: l.contactEmail,
       keywords: l.keywords,
       c: l.classification,
       contactLinks: l.contactLinks,
@@ -32,7 +38,7 @@ export function renderReport(leads, { generatedAt, hotLeadScore }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>סורק לידים</title>
+<title>סורק לידים ומכרזים</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -56,7 +62,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Heebo,system-
 .wrap{max-width:1080px;margin:0 auto;padding:28px 16px 64px}
 header h1{font-size:28px;font-weight:800;margin:0 0 4px;letter-spacing:-.01em}
 header p{margin:0;color:var(--ink-2)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0 18px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:22px 0 18px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow)}
 .stat b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
 .stat span{color:var(--ink-2);font-size:13px}
@@ -82,6 +88,10 @@ header p{margin:0;color:var(--ink-2)}
 .chip.cat{background:var(--surface-2);color:var(--ink-2)}
 .hint{margin-top:8px;font-size:14px}
 .hint b{color:var(--accent)}
+.deadline{display:inline-block;margin-top:8px;font-size:13.5px;font-weight:700;color:var(--accent)}
+.deadline.urgent{background:var(--hot);color:var(--accent-ink);border-radius:6px;padding:1px 8px}
+.contact{margin-top:6px;font-size:14px}
+.contact a{color:var(--accent)}
 .pitch{margin-top:6px;font-size:14px;color:var(--ink-2)}
 details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
 summary{cursor:pointer;color:var(--ink-2);font-size:14px}
@@ -97,6 +107,7 @@ select.btn{padding:5px 8px}
 footer{color:var(--ink-3);font-size:12.5px;margin-top:28px}
 @media (max-width:640px){
   .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:first-child{grid-column:1/-1}
   .card{grid-template-columns:1fr}
   .score{width:auto;height:36px;justify-self:start;padding:0 12px}
 }
@@ -105,8 +116,8 @@ footer{color:var(--ink-3);font-size:12.5px;margin-top:28px}
 <body>
 <div class="wrap">
   <header>
-    <h1>סורק לידים ממודעות דרושים</h1>
-    <p>עסקים שמגייסים קמפיינר או איש דיגיטל, ואפשר להציע להם צוות מלא במיקור חוץ. סוכנויות מסוננות החוצה.</p>
+    <h1>סורק לידים ומכרזים</h1>
+    <p>עסקים שמגייסים קמפיינר או איש דיגיטל, שאפשר להציע להם צוות מלא במיקור חוץ, ומכרזים פתוחים לשירותי פרסום ודיגיטל. סוכנויות מסוננות החוצה.</p>
   </header>
   <section class="stats" id="stats"></section>
   <div class="toolbar">
@@ -129,7 +140,8 @@ const statusOf = id => (store.get("status") || {})[id] || "חדש";
 function setStatus(id, s){ const all = store.get("status") || {}; all[id] = s; store.set("status", all); }
 
 const TABS = [
-  ["hot","🔥 לידים חמים", l => l.c.score >= HOT],
+  ["hot","🔥 לידים חמים", l => l.c.score >= HOT && l.kind !== "tender"],
+  ["tender","🏛️ מכרזים", l => l.c.category === "tender"],
   ["direct","חברות ישירות", l => l.c.category === "direct"],
   ["via-recruiter","דרך השמה / חסוי", l => l.c.category === "via-recruiter"],
   ["agency","סוכנויות", l => l.c.category === "agency"],
@@ -145,16 +157,17 @@ function renderStats(){
   const n = f => LEADS.filter(f).length;
   document.getElementById("stats").innerHTML = [
     ["hot", n(TABS[0][2]), "לידים חמים"],
-    ["", n(TABS[1][2]), "חברות ישירות"],
-    ["", n(TABS[2][2]), "דרך השמה / חסוי"],
-    ["", n(TABS[3][2]), "סוכנויות שסוננו"],
+    ["", n(TABS[1][2]), "מכרזים פתוחים"],
+    ["", n(TABS[2][2]), "חברות ישירות"],
+    ["", n(TABS[3][2]), "דרך השמה / חסוי"],
+    ["", n(TABS[4][2]), "סוכנויות שסוננו"],
   ].map(([c,v,l]) => '<div class="stat '+c+'"><b>'+v+'</b><span>'+l+'</span></div>').join("");
 }
 function renderTabs(){
   document.getElementById("tabs").innerHTML = TABS.map(([k,label,f]) =>
     '<button class="tab" data-k="'+k+'" aria-pressed="'+(k===tab)+'">'+label+'<span class="n">'+LEADS.filter(f).length+'</span></button>').join("");
 }
-function gmailUrl(e){ return "https://mail.google.com/mail/?view=cm&fs=1&su="+encodeURIComponent(e.subject)+"&body="+encodeURIComponent(e.body); }
+function gmailUrl(e, to){ return "https://mail.google.com/mail/?view=cm&fs=1"+(to?"&to="+encodeURIComponent(to):"")+"&su="+encodeURIComponent(e.subject)+"&body="+encodeURIComponent(e.body); }
 
 function card(l){
   const st = statusOf(l.id);
@@ -165,16 +178,22 @@ function card(l){
     ...(l.c.needs||[]).map(n => '<span class="chip">'+esc(n)+'</span>')
   ].join("");
   const hint = l.c.endClientHint ? '<div class="hint">המעסיק האמיתי: <b>'+esc(l.c.endClientHint)+'</b></div>' : "";
+  let dl = "";
+  if (l.deadline) {
+    const days = Math.floor((Date.parse(l.deadline) - Date.now()) / 864e5);
+    dl = '<div class="deadline'+(days < 7 ? " urgent" : "")+'">⏰ הגשה עד '+esc(fmtDate(l.deadline))+' · '+(days <= 0 ? "היום!" : "עוד "+days+" ימים")+'</div>';
+  }
+  const contact = (l.contactName || l.contactEmail) ? '<div class="contact">👤 '+esc(l.contactName || "")+(l.contactEmail ? ' · <a href="mailto:'+esc(l.contactEmail)+'">'+esc(l.contactEmail)+'</a>' : "")+'</div>' : "";
   const pitch = l.c.pitchAngle ? '<div class="pitch">💡 '+esc(l.c.pitchAngle)+'</div>' : "";
   const links = (l.contactLinks||[]).map(x => '<a class="btn" target="_blank" rel="noopener" href="'+esc(x.url)+'">'+esc(x.label)+'</a>').join("");
   const email = l.email ? '<details><summary>✉️ טיוטת מייל</summary><div class="email"><div class="subj">'+esc(l.email.subject)+'</div>'+esc(l.email.body)+'</div>'
-    + '<div class="actions"><button class="btn primary" data-copy="'+esc(l.id)+'">העתקת המייל</button><a class="btn" target="_blank" rel="noopener" href="'+esc(gmailUrl(l.email))+'">פתיחה ב-Gmail</a></div></details>' : "";
+    + '<div class="actions"><button class="btn primary" data-copy="'+esc(l.id)+'">העתקת המייל</button><a class="btn" target="_blank" rel="noopener" href="'+esc(gmailUrl(l.email, l.contactEmail))+'">פתיחה ב-Gmail</a></div></details>' : "";
   return '<article class="card'+(["נסגר","לא מתאים"].includes(st)?" done":"")+'">'
     + '<div class="score '+scoreClass(l.c.score)+'" title="ציון ליד">'+l.c.score+'</div>'
     + '<div><div class="top"><span class="company">'+esc(who)+'</span><span class="title">'+esc(l.title)+'</span></div>'
     + '<div class="meta">'+esc([l.city, fmtDate(l.publishedAt), l.source, l.c.method==="claude"?"סווג ע״י Claude":"סווג לפי חוקים"].filter(Boolean).join(" · "))+'</div>'
-    + '<div class="chips">'+chips+'</div>'+hint+pitch
-    + '<div class="actions"><a class="btn" target="_blank" rel="noopener" href="'+esc(l.url)+'">למודעה</a>'+links
+    + '<div class="chips">'+chips+'</div>'+dl+contact+hint+pitch
+    + '<div class="actions"><a class="btn" target="_blank" rel="noopener" href="'+esc(l.url)+'">'+(l.kind==="tender"?"למכרז":"למודעה")+'</a>'+links
     + '<select class="btn" data-status="'+esc(l.id)+'" aria-label="סטטוס">'+STATUSES.map(s => '<option'+(s===st?" selected":"")+'>'+s+'</option>').join("")+'</select></div>'
     + email
     + '<details><summary>למה הסיווג הזה? ותיאור המשרה</summary><ul class="reasons">'+(l.c.reasons||[]).map(r => '<li>'+esc(r)+'</li>').join("")+'</ul><div class="desc">'+esc(l.description)+'</div></details>'

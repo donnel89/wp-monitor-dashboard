@@ -6,6 +6,10 @@
 //   node src/scan.js --keywords "קמפיינר,PPC"
 //   node src/scan.js --add ads.json  הוספת מודעות ידנית (לינקדאין, פייסבוק וכו')
 //   node src/scan.js --reclassify    לסווג מחדש גם מודעות שכבר סווגו
+//   node src/scan.js --no-jobs       בלי מודעות דרושים (רק מכרזים)
+//   node src/scan.js --no-tenders    בלי מכרזים (רק מודעות דרושים)
+//   node src/scan.js --no-monday     בלי סנכרון למאנדיי (גם כשיש MONDAY_API_TOKEN)
+//   node src/scan.js --export-monday out.json   שמירת הפריטים שממתינים למאנדיי לקובץ (לבדיקה)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { config, ROOT } from "./config.js";
@@ -14,6 +18,10 @@ import { classifyByRules } from "./classify/rules.js";
 import { classifyWithClaude, hasClaudeCredentials } from "./classify/claude.js";
 import { draftEmail, contactLinks } from "./email.js";
 import { renderReport } from "./report.js";
+import { searchTenders, fetchTenderDetails } from "./sources/mrgov.js";
+import { scanTenderPage } from "./sources/tenderPages.js";
+import { classifyTender, draftTenderEmail } from "./classify/tenders.js";
+import { syncToMonday, shouldSync, createItemVariables, itemName } from "./monday.js";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -76,6 +84,85 @@ async function collect() {
   return [...found.values()];
 }
 
+// ---------- מכרזים ----------
+function tenderToLead(t, classification, prev, now) {
+  return {
+    ...prev,
+    id: t.id,
+    kind: "tender",
+    source: t.id.startsWith("mrgov:") ? "mr.gov.il" : t.publisher,
+    title: t.title,
+    company: t.publisher || "גוף ציבורי",
+    companyHidden: false,
+    city: "",
+    description: [t.tenderType, t.procedureNo && `מס' הליך ${t.procedureNo}`, t.status, t.topics && `נושאים: ${t.topics}`]
+      .filter(Boolean)
+      .join(" · "),
+    publishedAt: t.publishedAt,
+    deadline: t.deadline,
+    url: t.url,
+    submitUrl: t.submitUrl || "",
+    tenderType: t.tenderType,
+    procedureNo: t.procedureNo,
+    number: t.number,
+    contactName: t.contactName || "",
+    contactEmail: t.contactEmail || "",
+    firstSeen: prev?.firstSeen ?? now,
+    lastSeen: now,
+    classification,
+    contactLinks: t.submitUrl ? [{ label: "הגשת שאלות והצעות", url: t.submitUrl }] : [],
+    email: classification.relevant ? draftTenderEmail(t, config.sender) : null,
+  };
+}
+
+async function collectTenders(store, now) {
+  const found = new Map();
+  for (const q of config.tenderQueries) {
+    try {
+      const list = await searchTenders(q);
+      log(`  mr.gov.il · "${q}": ${list.length} פרסומים`);
+      for (const t of list) found.set(t.id, t);
+    } catch (e) {
+      log(`  ⚠ mr.gov.il · "${q}": ${e.message}`);
+    }
+    await sleep(config.requestDelayMs);
+  }
+  for (const page of config.tenderPages) {
+    try {
+      const list = await scanTenderPage(page);
+      log(`  ${page.name}: ${list.length} קישורים למכרזים`);
+      for (const t of list) found.set(t.id, t);
+    } catch (e) {
+      log(`  ⚠ ${page.name}: ${e.message}`);
+    }
+    await sleep(config.requestDelayMs);
+  }
+
+  let added = 0;
+  for (const t of found.values()) {
+    const prev = store[t.id];
+    if (prev && !flag("--reclassify")) {
+      prev.lastSeen = now;
+      continue;
+    }
+    // סינון ראשון לפי הכותרת, ורק אז כניסה לעמוד המכרז לפרטי קשר
+    if (!classifyTender(t).relevant) continue;
+    if (t.id.startsWith("mrgov:")) {
+      try {
+        Object.assign(t, await fetchTenderDetails(t));
+      } catch (e) {
+        log(`  ⚠ פרטי מכרז ${t.number}: ${e.message}`);
+      }
+      await sleep(config.requestDelayMs / 2);
+    }
+    const classification = classifyTender(t);
+    if (!classification.relevant) continue;
+    store[t.id] = tenderToLead(t, classification, prev, now);
+    if (!prev) added++;
+  }
+  return added;
+}
+
 async function classify(ad, useAI) {
   const rules = classifyByRules(ad);
   // שולחים ל-Claude רק מה שהחוקים לא פסלו כלא רלוונטי לגמרי, כדי לחסוך עלות
@@ -136,7 +223,7 @@ async function main() {
   if (!flag("--report-only")) {
     const useAI = !flag("--no-ai") && hasClaudeCredentials();
     log(`סורק... (סיווג: ${useAI ? `Claude (${config.claude.model})` : "חוקים בלבד"})`);
-    const ads = await collect();
+    const ads = flag("--no-jobs") ? [] : await collect();
 
     // כפילויות: אותה חברה ואותה כותרת שמתפרסמות כמה פעמים (למשל בכמה ערים)
     const seenKeys = new Set(
@@ -170,20 +257,46 @@ async function main() {
       store[ad.id] = lead;
       if (!existing) added++;
     }
+    log(`נוספו ${added} מודעות דרושים חדשות`);
+
+    if (!flag("--no-tenders")) {
+      log("סורק מכרזים...");
+      const addedTenders = await collectTenders(store, now);
+      log(`נוספו ${addedTenders} מכרזים רלוונטיים חדשים`);
+    }
     writeFileSync(STORE, JSON.stringify(store, null, 1));
-    log(`נוספו ${added} מודעות חדשות. סה"כ במאגר: ${Object.keys(store).length}`);
+    log(`סה"כ במאגר: ${Object.keys(store).length}`);
   }
 
   propagateAgencies(store);
 
   const cutoff = Date.now() - config.maxAgeDays * 864e5;
   const leads = Object.values(store)
-    .filter((l) => !l.publishedAt || Date.parse(l.publishedAt) >= cutoff)
+    .filter((l) =>
+      l.kind === "tender"
+        ? !l.deadline || Date.parse(l.deadline) >= Date.now() // מכרז מוצג עד המועד האחרון
+        : !l.publishedAt || Date.parse(l.publishedAt) >= cutoff
+    )
     .sort((a, b) => b.classification.score - a.classification.score);
 
   writeFileSync(join(DATA_DIR, "leads.csv"), toCsv(leads.filter((l) => l.classification.score > 0)));
   const reportPath = join(ROOT, "report.html");
   writeFileSync(reportPath, renderReport(leads, { generatedAt: now, hotLeadScore: config.hotLeadScore }));
+
+  // ---------- מאנדיי ----------
+  const exportPath = opt("--export-monday");
+  if (exportPath) {
+    const pending = leads.filter((l) => shouldSync(l) && !l.mondayItemId);
+    writeFileSync(
+      exportPath,
+      JSON.stringify(pending.map((l) => ({ leadId: l.id, name: itemName(l), variables: createItemVariables(l) })), null, 1)
+    );
+    log(`נשמרו ${pending.length} פריטים שממתינים למאנדיי: ${exportPath}`);
+  } else if (!flag("--no-monday") && !flag("--report-only")) {
+    const created = await syncToMonday(leads, log);
+    if (created) log(`📋 נוספו ${created} לידים חדשים לבורד במאנדיי`);
+    writeFileSync(STORE, JSON.stringify(store, null, 1));
+  }
 
   const by = (cat) => leads.filter((l) => l.classification.category === cat).length;
   const hot = leads.filter((l) => l.classification.score >= config.hotLeadScore).length;
@@ -191,6 +304,7 @@ async function main() {
   log(`🔥 לידים חמים (ציון ${config.hotLeadScore}+): ${hot}`);
   log(`🏢 חברות ישירות: ${by("direct")}`);
   log(`🤝 דרך השמה / חסוי: ${by("via-recruiter")}`);
+  log(`🏛️ מכרזים פתוחים: ${by("tender")}`);
   log(`🚫 סוכנויות (סוננו): ${by("agency")}`);
   log(`·  לא רלוונטי: ${by("irrelevant")}`);
   log("");
