@@ -30,7 +30,8 @@ export function draftEmail(ad, c) {
   const role = roleFromTitle(ad.title) || "קמפיינר/ית";
   const extras = (c.needs ?? []).map((n) => NEED_LINES[n]).filter(Boolean).slice(0, 3);
   // "ב-" לפני שם לועזי, "ב" צמוד לפני שם בעברית
-  const greetingName = ad.companyHidden ? "" : /^[\u0590-\u05FF]/.test(ad.company) ? ` ב${ad.company}` : ` ב-${ad.company}`;
+  // כשהמפרסם הוא חברת השמה, לא פונים בשמה: המייל מיועד למעסיק האמיתי
+  const greetingName = ad.companyHidden || c.posterType === "recruiter" ? "" : /^[\u0590-\u05FF]/.test(ad.company) ? ` ב${ad.company}` : ` ב-${ad.company}`;
 
   const subject = `ראיתי שאתם מגייסים ${role}: הצעה שכדאי לשקול לפני שסוגרים`;
 
@@ -68,7 +69,7 @@ export function draftEmail(ad, c) {
 
 // קישורים שעוזרים למצוא איש קשר. רק קישורי חיפוש שהמשתמש לוחץ עליהם, בלי סריקה אוטומטית.
 export function contactLinks(ad, c) {
-  const who = ad.companyHidden ? c.endClientHint : ad.company;
+  const who = ad.companyHidden || c.posterType === "recruiter" ? c.endClientHint : ad.company;
   if (!who) return [];
   const q = (s) => encodeURIComponent(s);
   return [
