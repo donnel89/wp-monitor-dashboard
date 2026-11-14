@@ -1,0 +1,16 @@
+{
+  "name": "job-leads-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "סורק מודעות דרושים לקמפיינרים, מסווג סוכנות / חברת השמה / חברה ישירה, ומכין טיוטות פנייה",
+  "type": "module",
+  "scripts": {
+    "scan": "node src/scan.js",
+    "scan:no-ai": "node src/scan.js --no-ai",
+    "report": "node src/scan.js --report-only"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
+}
