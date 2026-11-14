@@ -46,8 +46,12 @@ export function columnValues(lead) {
   if (lead.contactEmail) v[col.email] = { email: lead.contactEmail, text: lead.contactEmail };
   if (lead.deadline) v[col.deadline] = { date: day(lead.deadline) };
   if (lead.url) v[col.url] = { url: lead.url, text: c.category === "tender" ? "למכרז" : "למודעה" };
-  const search = lead.contactLinks?.find((l) => l.label.includes("לינקדאין")) ?? lead.contactLinks?.[0];
-  if (search) v[col.contactSearch] = { url: search.url, text: "חיפוש איש קשר" };
+  if (c.category === "tender") {
+    if (lead.submitUrl) v[col.contactSearch] = { url: lead.submitUrl, text: "הגשת שאלות והצעות" };
+  } else {
+    const search = lead.contactLinks?.find((l) => l.label.includes("לינקדאין")) ?? lead.contactLinks?.[0];
+    if (search) v[col.contactSearch] = { url: search.url, text: "חיפוש איש קשר" };
+  }
   if (c.industry) v[col.industry] = c.industry;
   if (lead.city) v[col.city] = lead.city;
   if (c.needs?.length) v[col.needs] = { labels: c.needs };
