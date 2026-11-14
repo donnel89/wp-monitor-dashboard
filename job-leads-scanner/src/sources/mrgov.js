@@ -60,6 +60,7 @@ export function parseDetailHtml(html) {
     .map((m) => decode(m[0]))
     .join(" ");
   return {
+    publisher: pick(/id="sub-head-details">[\s\S]*?<h2>([^<]*)<\/h2>/, html),
     contactName: pick(/bid-contact-name">\s*איש קשר:\s*([^<]*)/, html),
     contactEmail: pick(/bid-contact-mail">[\s\S]*?mailto:([^"]+)"/, html),
     status: pick(/id="status-output"[^>]*>([^<]*)/, html),

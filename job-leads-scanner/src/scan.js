@@ -85,6 +85,26 @@ async function collect() {
 }
 
 // ---------- מכרזים ----------
+const GOV_DOMAINS = {
+  "mof.gov.il": "משרד האוצר",
+  "health.gov.il": "משרד הבריאות",
+  "education.gov.il": "משרד החינוך",
+  "tourism.gov.il": "משרד התיירות",
+  "energy.gov.il": "משרד האנרגיה והתשתיות",
+  "moag.gov.il": "משרד החקלאות",
+  "lapam.gov.il": "לשכת הפרסום הממשלתית (לפ\"מ)",
+  "mot.gov.il": "משרד התחבורה",
+  "justice.gov.il": "משרד המשפטים",
+  "molsa.gov.il": "משרד הרווחה",
+  "mfa.gov.il": "משרד החוץ",
+};
+function publisherOf(t) {
+  if (t.publisher) return t.publisher;
+  const domain = (t.contactEmail ?? "").split("@")[1] ?? "";
+  if (GOV_DOMAINS[domain]) return `${GOV_DOMAINS[domain]}${t.contactName ? ` – ${t.contactName}` : ""}`;
+  return t.contactName || (domain ? `גוף ציבורי (${domain})` : "גוף ציבורי");
+}
+
 function tenderToLead(t, classification, prev, now) {
   return {
     ...prev,
@@ -92,7 +112,7 @@ function tenderToLead(t, classification, prev, now) {
     kind: "tender",
     source: t.id.startsWith("mrgov:") ? "mr.gov.il" : t.publisher,
     title: t.title,
-    company: t.publisher || "גוף ציבורי",
+    company: publisherOf(t),
     companyHidden: false,
     city: "",
     description: [t.tenderType, t.procedureNo && `מס' הליך ${t.procedureNo}`, t.status, t.topics && `נושאים: ${t.topics}`]
@@ -149,7 +169,8 @@ async function collectTenders(store, now) {
     if (!classifyTender(t).relevant) continue;
     if (t.id.startsWith("mrgov:")) {
       try {
-        Object.assign(t, await fetchTenderDetails(t));
+        // לא דורסים ערך קיים בשדה ריק מעמוד הפרטים
+        for (const [k, v] of Object.entries(await fetchTenderDetails(t))) if (v) t[k] = v;
       } catch (e) {
         log(`  ⚠ פרטי מכרז ${t.number}: ${e.message}`);
       }
