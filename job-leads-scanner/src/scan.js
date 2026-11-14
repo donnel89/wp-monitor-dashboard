@@ -320,7 +320,7 @@ async function main() {
   }
 
   const by = (cat) => leads.filter((l) => l.classification.category === cat).length;
-  const hot = leads.filter((l) => l.classification.score >= config.hotLeadScore).length;
+  const hot = leads.filter((l) => l.kind !== "tender" && l.classification.score >= config.hotLeadScore).length;
   log("");
   log(`🔥 לידים חמים (ציון ${config.hotLeadScore}+): ${hot}`);
   log(`🏢 חברות ישירות: ${by("direct")}`);
