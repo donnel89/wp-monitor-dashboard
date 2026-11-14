@@ -51,8 +51,8 @@ const defaults = {
     assigneeId: 95427431, // Maoz Moshe Olamy
     groups: {
       tender: "topics", // 🏛️ מכרזים פתוחים
-      hot: "", // ימולא בהרצה הראשונה של --monday-setup
-      other: "",
+      hot: "group_mm93e7pj", // 🔥 משרות – לידים חמים
+      other: "group_mm93d56x", // משרות – לידים נוספים
     },
     columns: {
       status: "color_mm932nf7",
