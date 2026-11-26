@@ -431,7 +431,8 @@
 		var on = page.type === 'checkout' ? (C.checkoutProactive && CHECKOUT_TRIGGERS.indexOf(trigger) !== -1) : C.proactive;
 		if (C.proactiveMode === 'all') {
 			// Every trigger may speak: once per page load each, with a pause between messages, never over an open chat.
-			return on && grp !== 'control' && panel.hidden && peek.hidden && !firedSet[trigger] && Date.now() - lastShownAt >= (C.proactiveCooldown || 0) * 1000;
+			// Urgent signals (copying the product name, an error) skip the pause: the moment matters.
+			return on && grp !== 'control' && panel.hidden && peek.hidden && !firedSet[trigger] && (prio(trigger) >= 3 || Date.now() - lastShownAt >= (C.proactiveCooldown || 0) * 1000);
 		}
 		return on && grp !== 'control' && !fired && !get(SS, 'proactive', false) && !get(SS, 'dismissed', false) && panel.hidden && !history.length;
 	}
@@ -485,9 +486,10 @@
 			}, 1500);
 			return;
 		}
-		setTimeout(function () { if (pendingOpener) showPeek(pendingOpener.text, pendingOpener.trigger); }, 2000 + Math.random() * 2000);
+		var urgent = prio(trigger) >= 3; // The shopper is about to look elsewhere: answer almost at once.
+		setTimeout(function () { if (pendingOpener) showPeek(pendingOpener.text, pendingOpener.trigger, urgent); }, urgent ? 250 : 2000 + Math.random() * 2000);
 	}
-	function showPeek(text, trigger) {
+	function showPeek(text, trigger, urgent) {
 		if (!panel.hidden) return;
 		peekText.innerHTML = '<span class="aisr-typing aisr-inline"><i></i><i></i><i></i></span>';
 		peek.hidden = false; root.classList.add('aisr-peeking');
@@ -496,7 +498,7 @@
 			peekText.textContent = latest.text;
 			dot.hidden = false;
 			track('shown', { trigger: latest.trigger });
-		}, 1200);
+		}, urgent ? 600 : 1200);
 	}
 	function hidePeek(dismissed) {
 		if (peek.hidden) return;
@@ -534,7 +536,7 @@
 				var h = document.querySelector('h1.product_title, .product_title, h1');
 				var name = ((h && h.textContent) || page.title || '').replace(/\s+/g, ' ').trim();
 				if (name && (name.indexOf(sel) !== -1 || sel.indexOf(name) !== -1)) fire('copy_name', true);
-			}, 700);
+			}, 350);
 		});
 	}
 
