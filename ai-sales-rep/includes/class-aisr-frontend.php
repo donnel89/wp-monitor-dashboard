@@ -138,6 +138,7 @@ class AISR_Frontend {
 				// Test mode only (logged-in, uncached pages): lets REST see the logged-in manager.
 				'restNonce'     => 'all' === $s['visibility'] ? '' : wp_create_nonce( 'wp_rest' ),
 				'page'          => $page,
+				'testMode'      => 'all' !== $s['visibility'], // Shop managers testing: every page load starts a fresh visit.
 				'persona'       => array(
 					'name'   => $s['persona_name'],
 					'role'   => $s['persona_role'],

@@ -13,6 +13,13 @@
 	var SS = store('sessionStorage');
 	var hasConsent = C.privacyMode === 'extended' && typeof window.wp_has_consent === 'function' && window.wp_has_consent('preferences');
 	var LS = hasConsent ? store('localStorage') : null;
+	// Test mode (only shop managers see the chat): forget the visit on every page load, so each
+	// trigger can be tried again without opening a new tab. Live visitors keep the normal rules.
+	if (C.testMode) {
+		[SS, LS].forEach(function (s) {
+			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
+		});
+	}
 	function get(s, k, d) { try { var v = s && s.getItem('aisr_' + k); return v === null || v === undefined ? d : JSON.parse(v); } catch (e) { return d; } }
 	function set(s, k, v) { try { s && s.setItem('aisr_' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } }
 
@@ -32,6 +39,7 @@
 	if (!visitor) { visitor = rid(); set(SS, 'visitor', visitor); set(LS, 'visitor', visitor); }
 
 	var grp = cookie('aisr_grp');
+	if (C.testMode) grp = 'test'; // Managers are never put in the control group.
 	if (grp !== 'test' && grp !== 'control') {
 		grp = Math.random() * 100 < (C.controlPct || 0) ? 'control' : 'test';
 	}
