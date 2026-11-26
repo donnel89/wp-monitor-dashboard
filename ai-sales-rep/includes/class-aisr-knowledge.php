@@ -318,6 +318,30 @@ class AISR_Knowledge {
 		return trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( (string) $html ) ) ) );
 	}
 
+	/**
+	 * Can this product go into the cart without choices on its page? Simple, purchasable and in stock is not
+	 * enough: product-option plugins (e.g. Advanced Product Fields) block adding it without their required fields.
+	 * Runs WooCommerce's own add-to-cart validation with no fields posted, and caches the answer for a day.
+	 */
+	public static function quick_addable( WC_Product $p ): bool {
+		if ( ! $p->is_type( 'simple' ) || ! $p->is_purchasable() || ! $p->is_in_stock() ) {
+			return false;
+		}
+		$key    = 'aisr_qa_' . $p->get_id();
+		$cached = get_transient( $key );
+		if ( false !== $cached ) {
+			return 'yes' === $cached;
+		}
+		$ok = true;
+		if ( function_exists( 'wc_notice_count' ) && function_exists( 'WC' ) && WC()->session ) {
+			$before = wc_get_notices();
+			$ok     = (bool) apply_filters( 'woocommerce_add_to_cart_validation', true, $p->get_id(), 1 );
+			wc_set_notices( $before ); // Validation may add 'please choose…' notices: drop them, this was only a check.
+		}
+		set_transient( $key, $ok ? 'yes' : 'no', DAY_IN_SECONDS );
+		return $ok;
+	}
+
 	public static function product_card( WC_Product $p ): array {
 		$img = wp_get_attachment_image_url( $p->get_image_id(), 'woocommerce_thumbnail' );
 		return array(
@@ -328,7 +352,7 @@ class AISR_Knowledge {
 			'url'         => get_permalink( $p->get_id() ),
 			'in_stock'    => $p->is_in_stock(),
 			'made_to_order' => 'onbackorder' === $p->get_stock_status(),
-			'simple'      => $p->is_type( 'simple' ) && $p->is_purchasable(),
+			'simple'      => self::quick_addable( $p ), // false -> the card opens the product page to choose options.
 			'rating'      => (float) $p->get_average_rating(),
 		);
 	}

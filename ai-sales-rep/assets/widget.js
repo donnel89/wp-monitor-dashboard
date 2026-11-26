@@ -256,14 +256,16 @@
 		if (a.type === 'bundle') {
 			var box = el('div', 'aisr-bundle');
 			box.appendChild(el('div', 'aisr-bundle-title', a.title));
-			(a.items || []).forEach(function (p) { box.appendChild(card(p)); });
-			var all = el('button', 'aisr-btn', 'הוספת כל הסט לסל · ' + a.total); all.type = 'button';
+			(a.items || []).forEach(function (p) { var c = card(p); if (p.simple) c.classList.add('aisr-in-set'); box.appendChild(c); });
+			var addable = (a.items || []).filter(function (p) { return p.simple; });
+			var choose = (a.items || []).filter(function (p) { return !p.simple; });
+			var all = el('button', 'aisr-btn', choose.length ? (addable.length === 1 ? 'הוספת הפריט המוכן לסל' : 'הוספת ' + addable.length + ' הפריטים המוכנים לסל') : 'הוספת כל הסט לסל · ' + a.total); all.type = 'button';
 			all.addEventListener('click', function () {
 				all.disabled = true; all.textContent = 'מוסיף…';
 				var chain = Promise.resolve();
-				(a.items || []).forEach(function (p) { chain = chain.then(function () { return storeApi('/cart/add-item', { id: p.id, quantity: 1 }); }); });
+				addable.forEach(function (p) { chain = chain.then(function () { return storeApi('/cart/add-item', { id: p.id, quantity: 1 }); }); });
 				chain.then(function () {
-					all.textContent = 'הסט נוסף לסל ✓'; refreshMiniCart(); track('add_to_cart', { trigger: 'bundle' }); set(SS, 'added', true);
+					all.textContent = choose.length ? 'נוסף לסל ✓ · את ' + choose.map(function (p) { return p.name; }).join(', ') + ' בוחרים בעמוד המוצר' : 'הסט נוסף לסל ✓'; refreshMiniCart(); track('add_to_cart', { trigger: 'bundle' }); set(SS, 'added', true);
 				}).catch(function () { all.disabled = false; all.textContent = 'לא הצלחנו להוסיף. נסו שוב'; });
 			});
 			box.appendChild(all);

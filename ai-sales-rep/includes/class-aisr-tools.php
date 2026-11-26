@@ -251,14 +251,15 @@ class AISR_Tools {
 		$total = 0.0;
 		foreach ( array_slice( array_map( 'absint', (array) ( $in['product_ids'] ?? array() ) ), 0, 4 ) as $id ) {
 			$p = wc_get_product( $id );
-			if ( $p && 'publish' === $p->get_status() && $p->is_type( 'simple' ) && $p->is_purchasable() && $p->is_in_stock() ) {
+			// Items that need a choice on their page (a color, a name) can be in the set: the button adds the rest.
+			if ( $p && 'publish' === $p->get_status() && $p->is_purchasable() && $p->is_in_stock() ) {
 				$c        = AISR_Knowledge::product_card( $p );
 				$items[]  = $c;
 				$total   += (float) wc_get_price_to_display( $p );
 			}
 		}
-		if ( count( $items ) < 2 ) {
-			return array( 'error' => 'need_two_simple_purchasable_products' );
+		if ( count( $items ) < 2 || ! array_filter( array_column( $items, 'simple' ) ) ) {
+			return array( 'error' => 'need_two_products_that_can_be_added_without_choosing_options', 'hint' => 'Some products need a choice on their page (color, name). Pick other products, or show them with show_products.' );
 		}
 		$this->actions[] = array(
 			'type'  => 'bundle',
@@ -266,7 +267,8 @@ class AISR_Tools {
 			'items' => $items,
 			'total' => html_entity_decode( wp_strip_all_tags( wc_price( $total ) ) ),
 		);
-		return array( 'shown' => array_column( $items, 'id' ), 'total' => $total );
+		$choose = array_column( array_filter( $items, static fn( $c ) => empty( $c['simple'] ) ), 'name' );
+		return array( 'shown' => array_column( $items, 'id' ), 'total' => $total, 'needs_choice_on_product_page' => $choose );
 	}
 
 	private function suggest_replies( array $in ): array {
