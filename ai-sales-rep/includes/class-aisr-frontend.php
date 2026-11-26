@@ -223,6 +223,7 @@ class AISR_Frontend {
 				'freeShipGap'   => (int) $s['free_ship_gap'],
 				'holiday'       => AISR_Knowledge::holiday(),
 				'checkoutProactive' => 'ok' === $budget,
+				'version'       => AISR_VERSION,
 				'testMode'      => 'all' !== $s['visibility'], // Shop managers testing: every page load starts a fresh visit.
 				'persona'       => array(
 					'name'   => $s['persona_name'],

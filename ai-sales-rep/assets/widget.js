@@ -46,6 +46,20 @@
 	setCookie('aisr_grp', grp, hasConsent ? 30 : 0);
 
 	var page = C.page || { type: 'other', product_id: 0 };
+
+	// Diagnostics: add ?aisr_debug=1 to any page to see why a trigger did or did not show (works on phones).
+	var DEBUG = /[?&]aisr_debug=1/.test(location.search);
+	var dbgBox = null;
+	function dbg(msg) {
+		if (!DEBUG) return;
+		if (!dbgBox) {
+			dbgBox = document.createElement('div');
+			dbgBox.style.cssText = 'position:fixed;top:8px;left:8px;z-index:2147483647;max-width:300px;max-height:45vh;overflow:auto;background:rgba(0,0,0,.82);color:#fff;font:12px/1.4 monospace;padding:8px;border-radius:8px;direction:ltr;text-align:left;white-space:pre-wrap';
+			document.body.appendChild(dbgBox);
+		}
+		var t = new Date(); dbgBox.textContent += ('0' + t.getSeconds()).slice(-2) + 's ' + msg + '\n';
+		dbgBox.scrollTop = dbgBox.scrollHeight;
+	}
 	var pages = (get(SS, 'pages', 0) || 0) + 1;
 	set(SS, 'pages', pages);
 	var viewed = get(SS, 'viewed', []);
@@ -367,12 +381,16 @@
 			if ((Date.now() - startedAt) / 1000 < 40) return;
 			trigger = 'checkout_help';
 		}
-		if (!enabled(trigger)) return;
+		dbg('trigger: ' + trigger);
+		if (!enabled(trigger)) { dbg('  blocked: not enabled in settings'); return; }
 		// One proactive message per visit, but a stronger signal may replace the text of a bubble
 		// the shopper has not reacted to yet (e.g. copying the product name after a 'your cart is waiting').
-		if (upgradeable(trigger)) { var u = C.openers && C.openers[trigger]; if (u) { var ut = u.text; for (var uv in vars || {}) ut = ut.split('{' + uv + '}').join(vars[uv]); currentTrigger = trigger; pendingOpener = { trigger: trigger, text: ut, replies: u.replies }; if (!peek.hidden && !peekText.querySelector('.aisr-typing')) { peekText.textContent = ut; track('shown', { trigger: trigger }); } } return; }
-		if (!proactiveAllowed(trigger)) return;
-		if (!strong && !eligible()) return;
+		if (upgradeable(trigger)) { dbg('  replaces the bubble of ' + currentTrigger); var u = C.openers && C.openers[trigger]; if (u) { var ut = u.text; for (var uv in vars || {}) ut = ut.split('{' + uv + '}').join(vars[uv]); currentTrigger = trigger; pendingOpener = { trigger: trigger, text: ut, replies: u.replies }; if (!peek.hidden && !peekText.querySelector('.aisr-typing')) { peekText.textContent = ut; track('shown', { trigger: trigger }); } } return; }
+		if (!proactiveAllowed(trigger)) {
+			dbg('  blocked: ' + (grp === 'control' ? 'control group (10% see no proactive messages)' : fired || get(SS, 'proactive', false) ? 'already had one proactive message this visit' : get(SS, 'dismissed', false) ? 'a bubble was closed this visit' : !panel.hidden ? 'chat is open' : history.length ? 'already chatted this visit' : 'proactive off (checkout or budget)'));
+			return;
+		}
+		if (!strong && !eligible()) { dbg('  waiting: needs 2 pages or the dwell time'); return; }
 		var o = C.openers && C.openers[trigger];
 		if (!o) return;
 		var text = o.text;
@@ -381,7 +399,7 @@
 			if (!prevVisitProduct || !prevVisitProduct.name) return;
 			text = text.replace('{prev}', prevVisitProduct.name);
 		}
-		fired = true; set(SS, 'proactive', true); currentTrigger = trigger;
+		fired = true; set(SS, 'proactive', true); currentTrigger = trigger; dbg('  SHOWN');
 		pendingOpener = { trigger: trigger, text: text, replies: o.replies };
 		if (trigger === 'gallery') {
 			// The shopper is looking at a large image: open the full chat next to it, not a small bubble.
@@ -425,7 +443,8 @@
 	}
 
 	// Copying text on a product page: probably comparing prices elsewhere.
-	document.addEventListener('copy', function () { if (page.type === 'product') fire('copy_name', true); });
+	setTimeout(function () { dbg('v' + (C.version || '') + ' page=' + page.type + ' grp=' + grp + ' proactive=' + !!C.proactive + ' test=' + !!C.testMode + ' triggers=' + (C.triggers || []).length + ' mobile=' + isMobile + ' history=' + history.length + ' hadProactive=' + !!get(SS, 'proactive', false) + ' dismissed=' + !!get(SS, 'dismissed', false)); }, 300);
+	document.addEventListener('copy', function () { dbg('event: copy'); if (page.type === 'product') fire('copy_name', true); });
 	// Phones: a long press selects the text and the system menu copies it. Some browsers (notably in-app
 	// browsers of Instagram and Facebook) never send the copy event to the page, so selecting part of the
 	// product name counts as copying it.
@@ -435,6 +454,7 @@
 			clearTimeout(selTimer);
 			selTimer = setTimeout(function () {
 				var sel = (window.getSelection ? String(window.getSelection()) : '').replace(/\s+/g, ' ').trim();
+				if (sel) dbg('event: selection "' + sel.slice(0, 30) + '"');
 				if (sel.length < 3 || sel.length > 120) return;
 				var h = document.querySelector('h1.product_title, .product_title, h1');
 				var name = ((h && h.textContent) || page.title || '').replace(/\s+/g, ' ').trim();
