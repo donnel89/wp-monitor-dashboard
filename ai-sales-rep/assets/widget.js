@@ -281,7 +281,7 @@
 	}
 	form.addEventListener('submit', function (e) { e.preventDefault(); sendMessage(input.value); });
 
-	function openPanel(fromPeek) {
+	function openPanel(fromPeek, auto) {
 		hidePeek(false);
 		fired = true; // No proactive message once the shopper opened the chat.
 		panel.hidden = false; root.classList.add('aisr-open');
@@ -320,8 +320,8 @@
 			var o = (C.openers && C.openers[page.type === 'product' ? 'product_dwell' : (page.type === 'category' ? 'category' : 'home')]) || { text: 'היי, איך אפשר לעזור?', replies: [] };
 			bubble('bot', o.text, false); setChips(o.replies);
 		}
-		if (!isMobile) input.focus();
-		track('opened', { trigger: pendingOpener ? pendingOpener.trigger : 'manual' });
+		if (!isMobile && !auto) input.focus(); // Opened by itself: do not take the keyboard from the page.
+		if (!auto) track('opened', { trigger: pendingOpener ? pendingOpener.trigger : 'manual' });
 		fitViewport();
 	}
 	function closePanel() { panel.hidden = true; root.classList.remove('aisr-open'); }
@@ -360,6 +360,15 @@
 		}
 		fired = true; set(SS, 'proactive', true);
 		pendingOpener = { trigger: trigger, text: text, replies: o.replies };
+		if (trigger === 'gallery') {
+			// The shopper is looking at a large image: open the full chat next to it, not a small bubble.
+			setTimeout(function () {
+				if (!panel.hidden) return;
+				track('shown', { trigger: trigger });
+				openPanel(true, true);
+			}, 1500);
+			return;
+		}
 		setTimeout(function () { showPeek(text, trigger); }, 2000 + Math.random() * 2000);
 	}
 	function showPeek(text, trigger) {
