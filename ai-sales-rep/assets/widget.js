@@ -17,7 +17,7 @@
 	// trigger can be tried again without opening a new tab. Live visitors keep the normal rules.
 	if (C.testMode) {
 		[SS, LS].forEach(function (s) {
-			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
+			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0 && k !== 'aisr_pages' && k !== 'aisr_viewed'; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
 		});
 	}
 	function get(s, k, d) { try { var v = s && s.getItem('aisr_' + k); return v === null || v === undefined ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -418,14 +418,30 @@
 		lastY = y; lastT = now;
 	}, { passive: true });
 
-	// Gallery: many image taps/swipes, or pinch zoom.
+	// Gallery: opening an image in large view, paging through images, or pinch zoom.
+	// Covers WooCommerce's gallery, CommerceKit (Shoptimizer) and the Elementor lightbox.
+	var GALLERY = '.woocommerce-product-gallery, .flex-control-nav, .wc-block-product-gallery, #commercegurus-pdp-gallery, .cg-psp-gallery, .dialog-lightbox-widget, .elementor-lightbox, .pswp';
+	var ZOOM = '.woocommerce-product-gallery__trigger, .woocommerce-product-gallery__image a, a.swiper-slide-imglink, .wc-block-product-gallery-large-image, .zoomImg';
 	var galleryHits = 0;
+	function galleryHit(n) {
+		if (page.type !== 'product') return;
+		galleryHits += n;
+		if (galleryHits >= 3) fire('gallery', true);
+	}
 	document.addEventListener('click', function (e) {
-		if (e.target.closest && e.target.closest('.woocommerce-product-gallery, .flex-control-nav, .wc-block-product-gallery')) {
-			if (++galleryHits >= 4) fire('gallery', false);
-		}
+		if (!e.target.closest || !e.target.closest(GALLERY)) return;
+		galleryHit(e.target.closest(ZOOM) ? 3 : 1); // Opening the large view is enough on its own.
 	}, true);
-	document.addEventListener('touchstart', function (e) { if (e.touches && e.touches.length > 1 && page.type === 'product') fire('gallery', false); }, { passive: true });
+	var swipeX = null;
+	document.addEventListener('touchstart', function (e) {
+		if (e.touches && e.touches.length > 1 && page.type === 'product') { fire('gallery', true); return; }
+		swipeX = e.touches && e.touches.length === 1 && e.target.closest && e.target.closest(GALLERY) ? e.touches[0].clientX : null;
+	}, { passive: true });
+	document.addEventListener('touchend', function (e) {
+		if (swipeX === null || !e.changedTouches || !e.changedTouches.length) return;
+		if (Math.abs(e.changedTouches[0].clientX - swipeX) > 40) galleryHit(1);
+		swipeX = null;
+	}, { passive: true });
 
 	// Switching size/color several times.
 	var switches = 0;
