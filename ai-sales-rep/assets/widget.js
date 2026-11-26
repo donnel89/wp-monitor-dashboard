@@ -426,6 +426,22 @@
 
 	// Copying text on a product page: probably comparing prices elsewhere.
 	document.addEventListener('copy', function () { if (page.type === 'product') fire('copy_name', true); });
+	// Phones: a long press selects the text and the system menu copies it. Some browsers (notably in-app
+	// browsers of Instagram and Facebook) never send the copy event to the page, so selecting part of the
+	// product name counts as copying it.
+	if (page.type === 'product') {
+		var selTimer = null;
+		document.addEventListener('selectionchange', function () {
+			clearTimeout(selTimer);
+			selTimer = setTimeout(function () {
+				var sel = (window.getSelection ? String(window.getSelection()) : '').replace(/\s+/g, ' ').trim();
+				if (sel.length < 3 || sel.length > 120) return;
+				var h = document.querySelector('h1.product_title, .product_title, h1');
+				var name = ((h && h.textContent) || page.title || '').replace(/\s+/g, ' ').trim();
+				if (name && (name.indexOf(sel) !== -1 || sel.indexOf(name) !== -1)) fire('copy_name', true);
+			}, 700);
+		});
+	}
 
 	// Left to another app/tab and came back.
 	var hiddenAt = 0;
