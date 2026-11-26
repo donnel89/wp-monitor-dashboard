@@ -1,0 +1,386 @@
+<?php
+/**
+ * Tools the model can call. The server validates everything: the model can suggest,
+ * but only these functions decide on coupons, order data and stored leads.
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+class AISR_Tools {
+
+	/** Collected UI output for the current reply. */
+	public array $cards   = array();
+	public array $replies = array();
+	public array $actions = array();
+
+	private array $conv;
+	private array $page;
+
+	public function __construct( array $conv, array $page ) {
+		$this->conv = $conv;
+		$this->page = $page;
+	}
+
+	public static function coupon_reason_labels(): array {
+		return array(
+			'exit_intent'     => 'הגולש עומד לעזוב',
+			'cart_hesitation' => 'הגולש מתלבט עם סל מלא',
+			'price_objection' => 'הגולש אומר שהמחיר יקר',
+			'price_match'     => 'הגולש מוסר מחיר נמוך יותר אצל מתחרה',
+		);
+	}
+
+	public static function definitions(): array {
+		return array(
+			array(
+				'name'        => 'search_products',
+				'description' => 'Search the store catalog. Use before recommending anything. Returns only published products; in-stock only unless in_stock_only is false.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'query'         => array( 'type' => 'string', 'description' => 'Keywords in the store language' ),
+						'category'      => array( 'type' => 'string', 'description' => 'Exact category name from the category list' ),
+						'min_price'     => array( 'type' => 'number' ),
+						'max_price'     => array( 'type' => 'number' ),
+						'in_stock_only' => array( 'type' => 'boolean' ),
+						'limit'         => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 8 ),
+					),
+				),
+			),
+			array(
+				'name'        => 'get_product',
+				'description' => 'Full details of one product: description, attributes, variations with stock, recent reviews, related/upsell/cross-sell ids.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array( 'product_id' => array( 'type' => 'integer' ) ),
+					'required'   => array( 'product_id' ),
+				),
+			),
+			array(
+				'name'        => 'show_products',
+				'description' => 'Show 1-3 product cards in the chat, with image, price and an add-to-cart button. Use when recommending or comparing products.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'product_ids' => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ), 'maxItems' => 3 ),
+					),
+					'required'   => array( 'product_ids' ),
+				),
+			),
+			array(
+				'name'        => 'suggest_replies',
+				'description' => 'Show 2-4 quick-reply buttons under your message, so the visitor can answer with one tap. Use with every discovery question.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'options' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'minItems' => 2, 'maxItems' => 4 ),
+					),
+					'required'   => array( 'options' ),
+				),
+			),
+			array(
+				'name'        => 'record_insight',
+				'description' => 'Save what the visitor told you about their need (for the store owner statistics). Call once you learn any of these.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'use_case'          => array( 'type' => 'string', 'description' => 'What the product is for, in a few words' ),
+						'recipient'         => array( 'type' => 'string', 'enum' => array( 'self', 'gift' ) ),
+						'priority'          => array( 'type' => 'string', 'enum' => array( 'price', 'quality', 'design', 'fast_shipping', 'other' ) ),
+						'budget_max'        => array( 'type' => 'number' ),
+						'competitor'        => array( 'type' => 'string', 'description' => 'Competitor the visitor mentioned, if any' ),
+						'competitor_price'  => array( 'type' => 'number' ),
+					),
+				),
+			),
+			array(
+				'name'        => 'offer_coupon',
+				'description' => 'Ask the store for a one-time discount code. The store rules decide if one is allowed and how much. Never promise a discount before this returns allowed=true.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'reason'           => array( 'type' => 'string', 'enum' => array_keys( self::coupon_reason_labels() ) ),
+						'competitor_price' => array( 'type' => 'number', 'description' => 'Only for price_match: the total price the visitor saw elsewhere' ),
+					),
+					'required'   => array( 'reason' ),
+				),
+			),
+			array(
+				'name'        => 'track_order',
+				'description' => 'Order status. Requires the order number AND the email or phone used in the order. Never reveal anything if they do not match.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'order_number'   => array( 'type' => 'string' ),
+						'email_or_phone' => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'order_number', 'email_or_phone' ),
+				),
+			),
+			array(
+				'name'        => 'request_human',
+				'description' => 'Hand the conversation to a human at the store. Use when asked for a person, for complaints, exceptions you cannot decide, or when you cannot answer.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'summary' => array( 'type' => 'string', 'description' => 'One or two sentences for the store team: what the visitor wants, which product' ),
+					),
+					'required'   => array( 'summary' ),
+				),
+			),
+			array(
+				'name'        => 'save_lead',
+				'description' => 'Save contact details the visitor explicitly gave you so the store can get back to them. Ask for consent first. marketing_consent is true only if they explicitly agreed to receive reminders/offers.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'name'              => array( 'type' => 'string' ),
+						'phone'             => array( 'type' => 'string' ),
+						'email'             => array( 'type' => 'string' ),
+						'marketing_consent' => array( 'type' => 'boolean' ),
+						'note'              => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'marketing_consent' ),
+				),
+			),
+			array(
+				'name'        => 'flag_unanswered',
+				'description' => 'Log a visitor question you could not answer from the store information, so the owner can add it.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array( 'question' => array( 'type' => 'string' ) ),
+					'required'   => array( 'question' ),
+				),
+			),
+		);
+	}
+
+	/** Run a tool; always returns a string for the tool_result. */
+	public function run( string $name, array $input ): string {
+		try {
+			$result = match ( $name ) {
+				'search_products' => array( 'products' => AISR_Knowledge::search( $input ) ),
+				'get_product'     => AISR_Knowledge::product_details( (int) ( $input['product_id'] ?? 0 ), true ) ?? array( 'error' => 'not_found' ),
+				'show_products'   => $this->show_products( $input ),
+				'suggest_replies' => $this->suggest_replies( $input ),
+				'record_insight'  => $this->record_insight( $input ),
+				'offer_coupon'    => $this->offer_coupon( $input ),
+				'track_order'     => $this->track_order( $input ),
+				'request_human'   => $this->request_human( $input ),
+				'save_lead'       => $this->save_lead( $input ),
+				'flag_unanswered' => $this->flag_unanswered( $input ),
+				default           => array( 'error' => 'unknown_tool' ),
+			};
+		} catch ( \Throwable $e ) {
+			$result = array( 'error' => 'tool_failed' );
+		}
+		return (string) wp_json_encode( $result, JSON_UNESCAPED_UNICODE );
+	}
+
+	private function show_products( array $in ): array {
+		$shown = array();
+		foreach ( array_slice( array_map( 'absint', (array) ( $in['product_ids'] ?? array() ) ), 0, 3 ) as $id ) {
+			$p = wc_get_product( $id );
+			if ( $p && 'publish' === $p->get_status() ) {
+				$this->cards[] = AISR_Knowledge::product_card( $p );
+				$shown[]       = $id;
+			}
+		}
+		return array( 'shown' => $shown );
+	}
+
+	private function suggest_replies( array $in ): array {
+		$opts          = array_slice( array_filter( array_map( 'sanitize_text_field', (array) ( $in['options'] ?? array() ) ) ), 0, 4 );
+		$this->replies = array_values( $opts );
+		return array( 'shown' => count( $this->replies ) );
+	}
+
+	private function record_insight( array $in ): array {
+		$cur = json_decode( (string) $this->conv['insights'], true ) ?: array();
+		foreach ( array( 'use_case', 'recipient', 'priority', 'competitor' ) as $k ) {
+			if ( ! empty( $in[ $k ] ) ) {
+				$cur[ $k ] = sanitize_text_field( (string) $in[ $k ] );
+			}
+		}
+		foreach ( array( 'budget_max', 'competitor_price' ) as $k ) {
+			if ( isset( $in[ $k ] ) && is_numeric( $in[ $k ] ) ) {
+				$cur[ $k ] = (float) $in[ $k ];
+			}
+		}
+		$this->conv['insights'] = wp_json_encode( $cur, JSON_UNESCAPED_UNICODE );
+		AISR_DB::update_conversation( $this->conv['uuid'], array( 'insights' => $this->conv['insights'] ) );
+		return array( 'saved' => true );
+	}
+
+	private function flag_unanswered( array $in ): array {
+		$cur   = json_decode( (string) $this->conv['unanswered'], true ) ?: array();
+		$cur[] = AISR_Privacy::mask( sanitize_text_field( (string) ( $in['question'] ?? '' ) ) );
+		$this->conv['unanswered'] = wp_json_encode( array_slice( $cur, -10 ), JSON_UNESCAPED_UNICODE );
+		AISR_DB::update_conversation( $this->conv['uuid'], array( 'unanswered' => $this->conv['unanswered'] ) );
+		return array( 'saved' => true );
+	}
+
+	private function offer_coupon( array $in ): array {
+		$s      = AISR_Settings::all();
+		$reason = (string) ( $in['reason'] ?? '' );
+
+		if ( empty( $s['coupon_enabled'] ) ) {
+			return array( 'allowed' => false, 'why' => 'The store does not offer chat discounts. Do not mention discounts.' );
+		}
+		if ( '' !== $this->conv['coupon_code'] ) {
+			return array( 'allowed' => true, 'code' => $this->conv['coupon_code'], 'note' => 'Already issued in this conversation. Remind them of this code.' );
+		}
+		$reasons = (array) $s['coupon_reasons'];
+		if ( 'price_match' === $reason ) {
+			if ( empty( $s['price_match'] ) ) {
+				return array( 'allowed' => false, 'why' => 'The store does not price-match. Explain the value instead, or offer a human.' );
+			}
+		} elseif ( ! in_array( $reason, $reasons, true ) ) {
+			return array( 'allowed' => false, 'why' => 'Not allowed in this situation. Do not mention discounts.' );
+		}
+
+		$subtotal = ( function_exists( 'WC' ) && WC()->cart ) ? (float) WC()->cart->get_subtotal() : 0.0;
+		$base     = $subtotal;
+		if ( $base <= 0 && ! empty( $this->page['product_id'] ) ) {
+			$p    = wc_get_product( (int) $this->page['product_id'] );
+			$base = $p ? (float) $p->get_price() : 0.0;
+		}
+		if ( (float) $s['coupon_min_cart'] > 0 && $base < (float) $s['coupon_min_cart'] ) {
+			return array( 'allowed' => false, 'why' => 'Below the minimum order for a discount (' . $s['coupon_min_cart'] . '). You may say discounts apply from that amount.' );
+		}
+
+		$pct = (float) $s['coupon_max_pct'];
+		if ( 'price_match' === $reason ) {
+			$theirs = (float) ( $in['competitor_price'] ?? 0 );
+			if ( $theirs <= 0 || $base <= 0 || $theirs >= $base ) {
+				return array( 'allowed' => false, 'why' => 'Need the competitor total price, lower than ours, to price-match.' );
+			}
+			$needed = ceil( ( 1 - $theirs / $base ) * 100 );
+			if ( $needed > $pct ) {
+				return array( 'allowed' => false, 'why' => 'The gap is larger than the store can match. Offer a human to review it.' );
+			}
+			$pct = max( 1, $needed );
+		}
+
+		$code   = 'aisr-' . strtolower( wp_generate_password( 6, false, false ) );
+		$coupon = new WC_Coupon();
+		$coupon->set_code( $code );
+		$coupon->set_discount_type( 'percent' );
+		$coupon->set_amount( $pct );
+		$coupon->set_individual_use( true );
+		$coupon->set_usage_limit( 1 );
+		$coupon->set_date_expires( time() + (int) $s['coupon_valid_hours'] * HOUR_IN_SECONDS );
+		if ( $s['coupon_excluded_cats'] ) {
+			$coupon->set_excluded_product_categories( array_map( 'intval', (array) $s['coupon_excluded_cats'] ) );
+		}
+		if ( (float) $s['coupon_min_cart'] > 0 ) {
+			$coupon->set_minimum_amount( (float) $s['coupon_min_cart'] );
+		}
+		$coupon->set_description( 'AI Sales Rep · ' . $reason . ' · ' . $this->conv['uuid'] );
+		$coupon->save();
+
+		$this->conv['coupon_code'] = $code;
+		AISR_DB::update_conversation( $this->conv['uuid'], array( 'coupon_code' => $code ) );
+		$this->actions[] = array( 'type' => 'coupon', 'code' => $code, 'pct' => $pct );
+
+		return array(
+			'allowed'     => true,
+			'code'        => $code,
+			'percent'     => $pct,
+			'valid_hours' => (int) $s['coupon_valid_hours'],
+			'note'        => 'A button to apply the code is shown under your message.',
+		);
+	}
+
+	private function track_order( array $in ): array {
+		$number = preg_replace( '/\D/', '', (string) ( $in['order_number'] ?? '' ) );
+		$ident  = trim( (string) ( $in['email_or_phone'] ?? '' ) );
+		$order  = $number ? wc_get_order( (int) $number ) : null;
+		if ( ! $order instanceof WC_Order || '' === $ident ) {
+			return array( 'found' => false );
+		}
+		$digits = static fn( string $v ): string => substr( preg_replace( '/\D/', '', $v ), -9 );
+		$match  = ( is_email( $ident ) && 0 === strcasecmp( $ident, (string) $order->get_billing_email() ) )
+			|| ( strlen( $digits( $ident ) ) >= 9 && $digits( $ident ) === $digits( (string) $order->get_billing_phone() ) );
+		if ( ! $match ) {
+			return array( 'found' => false );
+		}
+		$items = array();
+		foreach ( $order->get_items() as $item ) {
+			$items[] = $item->get_name() . ' x' . $item->get_quantity();
+		}
+		return array(
+			'found'      => true,
+			'status'     => wc_get_order_status_name( $order->get_status() ),
+			'date'       => $order->get_date_created() ? $order->get_date_created()->date_i18n( 'd/m/Y' ) : '',
+			'items'      => $items,
+			'shipping'   => $order->get_shipping_method(),
+			'tracking'   => (string) $order->get_meta( '_tracking_number' ),
+		);
+	}
+
+	private function request_human( array $in ): array {
+		$s       = AISR_Settings::all();
+		$summary = sanitize_text_field( (string) ( $in['summary'] ?? '' ) );
+		$open    = AISR_Settings::is_open_now();
+		AISR_DB::update_conversation( $this->conv['uuid'], array( 'handoff' => 1 ) );
+
+		if ( 'whatsapp' === $s['handoff_channel'] && $s['handoff_whatsapp'] ) {
+			$url             = 'https://wa.me/' . preg_replace( '/\D/', '', $s['handoff_whatsapp'] ) . '?text=' . rawurlencode( $summary );
+			$this->actions[] = array( 'type' => 'whatsapp', 'url' => $url, 'label' => 'המשך בוואטסאפ' );
+			return array(
+				'channel'    => 'whatsapp',
+				'open_now'   => $open,
+				'hours'      => $s['hours_start'] . '-' . $s['hours_end'],
+				'note'       => 'A WhatsApp button with the summary is shown. ' . ( $open ? '' : 'The team is offline now; say when they will reply.' ),
+			);
+		}
+
+		if ( 'email' === $s['handoff_channel'] && $s['handoff_email'] ) {
+			wp_mail( $s['handoff_email'], 'בקשה לנציג מהצ\'אט באתר', $summary . "\n\n" . admin_url( 'admin.php?page=aisr-dashboard' ) );
+		}
+		return array(
+			'channel'  => 'lead',
+			'open_now' => $open,
+			'hours'    => $s['hours_start'] . '-' . $s['hours_end'],
+			'note'     => 'Ask for name and phone or email (with consent) and call save_lead, so the team can get back to them.',
+		);
+	}
+
+	private function save_lead( array $in ): array {
+		$s     = AISR_Settings::all();
+		$email = sanitize_email( (string) ( $in['email'] ?? '' ) );
+		$phone = preg_replace( '/[^\d+]/', '', (string) ( $in['phone'] ?? '' ) );
+		if ( '' === $email && strlen( (string) $phone ) < 9 ) {
+			return array( 'saved' => false, 'why' => 'Need a valid phone or email.' );
+		}
+		$cart = array();
+		if ( function_exists( 'WC' ) && WC()->cart ) {
+			foreach ( WC()->cart->get_cart() as $item ) {
+				$cart[] = array( 'product_id' => (int) $item['product_id'], 'variation_id' => (int) $item['variation_id'], 'qty' => (int) $item['quantity'] );
+			}
+		}
+		$data = array(
+			'lead_name'      => sanitize_text_field( (string) ( $in['name'] ?? '' ) ),
+			'lead_phone'     => (string) $phone,
+			'lead_email'     => $email,
+			'lead_marketing' => empty( $in['marketing_consent'] ) ? 0 : 1,
+			'lead_cart'      => wp_json_encode( $cart ),
+		);
+		AISR_DB::update_conversation( $this->conv['uuid'], $data );
+
+		if ( $s['handoff_email'] ) {
+			$body = sprintf(
+				"ליד חדש מהצ'אט:\nשם: %s\nטלפון: %s\nמייל: %s\nהערה: %s\nאישור דיוור: %s\n\n%s",
+				$data['lead_name'],
+				$data['lead_phone'],
+				$data['lead_email'],
+				sanitize_text_field( (string) ( $in['note'] ?? '' ) ),
+				$data['lead_marketing'] ? 'כן' : 'לא',
+				admin_url( 'admin.php?page=aisr-dashboard' )
+			);
+			wp_mail( $s['handoff_email'], 'ליד חדש מנציג ה-AI', $body );
+		}
+		return array( 'saved' => true );
+	}
+}
