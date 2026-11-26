@@ -20,6 +20,9 @@
 			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0 && ['aisr_pages', 'aisr_viewed', 'aisr_policy_seen', 'aisr_added'].indexOf(k) === -1; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
 		});
 	}
+	// 'Every page load is a new visitor' (a store setting for a testing period): forget the proactive message and its
+	// dismissal on each load, but keep a conversation that already started.
+	if (C.freshVisits && SS) { try { SS.removeItem('aisr_proactive'); SS.removeItem('aisr_dismissed'); } catch (e) { /* ignore */ } }
 	function get(s, k, d) { try { var v = s && s.getItem('aisr_' + k); return v === null || v === undefined ? d : JSON.parse(v); } catch (e) { return d; } }
 	function set(s, k, v) { try { s && s.setItem('aisr_' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } }
 
@@ -40,7 +43,7 @@
 
 	var grp = cookie('aisr_grp');
 	// Managers, and anyone checking the bot with ?aisr_debug=1, are never put in the control group.
-	if (C.testMode || C.isManager || /[?&]aisr_debug=1/.test(location.search)) grp = 'test';
+	if (C.testMode || C.isManager || C.freshVisits || /[?&]aisr_debug=1/.test(location.search)) grp = 'test';
 	if (grp !== 'test' && grp !== 'control') {
 		grp = Math.random() * 100 < (C.controlPct || 0) ? 'control' : 'test';
 	}

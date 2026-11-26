@@ -112,6 +112,7 @@ class AISR_Settings {
 			'retention_days'       => 90,
 			// Credit.
 			'show_credit'          => 1,
+			'fresh_visits'         => 0,
 			'credit_text'          => '',
 			'credit_url'           => '',
 		);
@@ -273,7 +274,7 @@ class AISR_Settings {
 			$out[ $k ] = in_array( $v, $allowed, true ) ? $v : $d[ $k ];
 		}
 
-		foreach ( array( 'enabled', 'coupon_enabled', 'price_match', 'show_credit' ) as $k ) {
+		foreach ( array( 'enabled', 'coupon_enabled', 'price_match', 'show_credit', 'fresh_visits' ) as $k ) {
 			$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 		}
 
@@ -419,6 +420,7 @@ class AISR_Settings {
 				<table class="form-table" role="presentation">
 					<?php
 					self::field_check( 'enabled', 'הפעלה', 'הצ\'אט פעיל' );
+					self::field_check( 'fresh_visits', 'כל טעינת עמוד כמו גולש חדש', 'לתקופת בדיקות: אין מגבלה של פנייה אחת בביקור ואין קבוצת ביקורת, לכל הגולשים. שיחה שהתחילה נשמרת. לכבות בסיום הבדיקות, אחרת אין מדידה מול ביקורת.' );
 					self::field_select(
 						'visibility',
 						'מי רואה את הצ\'אט',
