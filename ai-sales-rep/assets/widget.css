@@ -179,3 +179,7 @@
 .aisr-bundle .aisr-in-set .aisr-card-btn { display: none; }
 .aisr-attach { flex: none; width: 40px !important; height: 40px; margin: 0 !important; padding: 0 !important; border: 0; border-radius: 50%; background: transparent; color: var(--aisr-muted); display: grid; place-items: center; cursor: pointer; }
 .aisr-photo { align-self: flex-end; max-width: 60%; border-radius: 12px; margin: 4px 0; }
+
+/* While the chat is open it sits above site widgets placed in the same corner (e.g. an accessibility button
+   with a very high z-index covered the send button on phones). Closed, those widgets are on top again. */
+.aisr-root.aisr-open { z-index: 2147483646; }
