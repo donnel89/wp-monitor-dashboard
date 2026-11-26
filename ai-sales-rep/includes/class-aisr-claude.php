@@ -341,6 +341,13 @@ TXT;
 			$reply
 		);
 		$reply = trim( preg_replace( "/\n{3,}/", "\n\n", (string) $reply ) );
+		// The answer sends the shopper to WhatsApp: give them the button, with a ready message (product + their question).
+		$wa = preg_replace( '/\D/', '', (string) AISR_Settings::get( 'handoff_whatsapp' ) );
+		if ( $wa && preg_match( '/וואטסאפ|ווטסאפ|ווצאפ|whatsapp/iu', $reply ) && ! array_filter( $tools->actions, static fn( $a ) => 'whatsapp' === ( $a['type'] ?? '' ) ) ) {
+			$prod = ! empty( $page['product_id'] ) && ( $wp = wc_get_product( (int) $page['product_id'] ) ) ? $wp->get_name() : '';
+			$text = 'היי, אני באתר' . ( $prod ? ' ומתעניינ/ת ב' . $prod : '' ) . '. ' . mb_substr( $message, 0, 200 );
+			$tools->actions[] = array( 'type' => 'whatsapp', 'url' => 'https://wa.me/' . $wa . '?text=' . rawurlencode( $text ), 'label' => 'שליחת הודעה בוואטסאפ' );
+		}
 		if ( '' === $reply ) { // Smaller models sometimes end a turn with tool calls only.
 			$reply = $tools->cards || $tools->actions ? 'הנה מה שמצאתי בשבילכם:' : 'ספרו לי קצת יותר מה מחפשים, ואמצא את המתאים.';
 		}
