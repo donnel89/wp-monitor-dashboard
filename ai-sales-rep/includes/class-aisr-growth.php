@@ -15,6 +15,7 @@ class AISR_Growth {
 		add_action( 'woocommerce_product_set_stock_status', array( __CLASS__, 'stock_changed' ), 10, 2 );
 		add_action( 'woocommerce_variation_set_stock_status', array( __CLASS__, 'variation_stock_changed' ), 10, 2 );
 		add_action( 'admin_post_aisr_weekly_report_now', array( __CLASS__, 'report_now' ) );
+		add_action( 'admin_post_aisr_growth_remove', array( __CLASS__, 'remove_entry' ) );
 	}
 
 	/* ---------- gift message ---------- */
@@ -233,6 +234,35 @@ class AISR_Growth {
 			wp_mail( $to, 'דוח שבועי מנציג ה-AI: למה לא קנו ומה לתקן', $text . "\n\n" . admin_url( 'admin.php?page=aisr-dashboard' ) );
 		}
 		return $text;
+	}
+
+	/** Dashboard: delete one waitlist or reminder entry (a test, or someone who asked to be removed). */
+	public static function remove_entry(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( 'forbidden' );
+		}
+		check_admin_referer( 'aisr_growth_remove' );
+		$kind = sanitize_key( (string) ( $_POST['kind'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		$key  = sanitize_text_field( wp_unslash( (string) ( $_POST['key'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 'reminder' === $kind ) {
+			$list = (array) get_option( 'aisr_reminders', array() );
+			unset( $list[ (int) $key ] );
+			update_option( 'aisr_reminders', array_values( $list ), false );
+		} elseif ( in_array( $kind, array( 'waitlist', 'waitlist_ready' ), true ) ) {
+			[ $pid, $i ] = array_map( 'intval', explode( ':', $key . ':' ) );
+			$opt         = 'waitlist' === $kind ? 'aisr_waitlist' : 'aisr_waitlist_ready';
+			$list        = (array) get_option( $opt, array() );
+			if ( isset( $list[ $pid ][ $i ] ) ) {
+				unset( $list[ $pid ][ $i ] );
+				$list[ $pid ] = array_values( $list[ $pid ] );
+				if ( ! $list[ $pid ] ) {
+					unset( $list[ $pid ] );
+				}
+				update_option( $opt, $list, false );
+			}
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=aisr-dashboard' ) . '#aisr-lists' );
+		exit;
 	}
 
 	public static function report_now(): void {

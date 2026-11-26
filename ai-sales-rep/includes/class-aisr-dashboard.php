@@ -239,6 +239,35 @@ class AISR_Dashboard {
 				<?php submit_button( 'ליצור דוח עכשיו (בלי מייל)', 'secondary', 'aisr_report_btn', false ); ?>
 			</form>
 
+			<h2 id="aisr-lists">מחכים למוצר ותזכורות</h2>
+			<p class="description">גולשים שביקשו בצ'אט עדכון כשמוצר חוזר, או תזכורת לפני אירוע. ההודעות מגיעות כמייל יומי עם קישורי וואטסאפ מוכנים.</p>
+			<table class="widefat striped" style="max-width:900px">
+				<thead><tr><th>סוג</th><th>מוצר / אירוע</th><th>שם</th><th>טלפון / מייל</th><th>מתי</th><th></th></tr></thead>
+				<tbody>
+				<?php
+				$aisr_rows = array();
+				foreach ( array( 'waitlist' => 'מחכה למלאי', 'waitlist_ready' => 'חזר למלאי, יישלח מחר' ) as $aisr_kind => $aisr_label ) {
+					foreach ( (array) get_option( 'waitlist' === $aisr_kind ? 'aisr_waitlist' : 'aisr_waitlist_ready', array() ) as $aisr_pid => $aisr_people ) {
+						$aisr_p = wc_get_product( $aisr_pid );
+						foreach ( $aisr_people as $aisr_i => $aisr_w ) {
+							$aisr_rows[] = array( $aisr_kind, $aisr_pid . ':' . $aisr_i, $aisr_label, $aisr_p ? $aisr_p->get_name() : '#' . $aisr_pid, $aisr_w['name'], $aisr_w['phone'], wp_date( 'd/m/Y', (int) $aisr_w['t'] ) );
+						}
+					}
+				}
+				foreach ( (array) get_option( 'aisr_reminders', array() ) as $aisr_i => $aisr_r ) {
+					$aisr_rows[] = array( 'reminder', (string) $aisr_i, 'תזכורת', $aisr_r['occasion'], $aisr_r['name'], $aisr_r['phone'] ?: $aisr_r['email'], $aisr_r['date'] );
+				}
+				foreach ( $aisr_rows as $aisr_row ) :
+					?>
+					<tr>
+						<td><?php echo esc_html( $aisr_row[2] ); ?></td><td><?php echo esc_html( $aisr_row[3] ); ?></td><td><?php echo esc_html( $aisr_row[4] ); ?></td><td><?php echo esc_html( $aisr_row[5] ); ?></td><td><?php echo esc_html( $aisr_row[6] ); ?></td>
+						<td><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0"><input type="hidden" name="action" value="aisr_growth_remove"><input type="hidden" name="kind" value="<?php echo esc_attr( $aisr_row[0] ); ?>"><input type="hidden" name="key" value="<?php echo esc_attr( $aisr_row[1] ); ?>"><?php wp_nonce_field( 'aisr_growth_remove' ); ?><button class="button-link-delete" type="submit">מחיקה</button></form></td>
+					</tr>
+				<?php endforeach; ?>
+				<?php if ( ! $aisr_rows ) : ?><tr><td colspan="6">אין כרגע.</td></tr><?php endif; ?>
+				</tbody>
+			</table>
+
 			<h2>חיפושים באתר שלא מצאו כלום</h2>
 			<p class="description">מה גולשים חיפשו ולא מצאו. אפשר להוסיף מוצר, מילת חיפוש בתיאור, או הפניה.</p>
 			<?php $aisr_fs = (array) get_option( 'aisr_failed_searches', array() ); uasort( $aisr_fs, static fn( $a, $b ) => $b['n'] <=> $a['n'] ); ?>

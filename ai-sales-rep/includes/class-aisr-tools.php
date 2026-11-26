@@ -58,7 +58,7 @@ class AISR_Tools {
 			),
 			array(
 				'name'        => 'show_bundle',
-				'description' => 'Show a ready gift set or bundle of 2-4 products that go together, with one button that adds all of them to the cart. Only simple, purchasable products; check them with search_products/get_product first. Give the set a short title (e.g. "סט מתנה למארחת").',
+				'description' => 'Build a gift set from 2-4 different products that go together, shown with one button that adds all of them to the cart. Use it whenever the shopper asks for several items or a set. Only simple, purchasable products; check them with search_products/get_product first. Give the set a short title (e.g. "סט מתנה למארחת").',
 				'inputSchema' => array(
 					'type'       => 'object',
 					'properties' => array(

@@ -114,7 +114,7 @@ How to sell (discovery, then recommendation):
 - After the shopper decides or adds to cart, or asks what goes with it, suggest exactly one complementary product that relates to what they told you: first the product's cross_sell_ids, otherwise a related_ids product from the same collection (a shared word in the name) or category. Prefer in-stock items, call show_products, and give one reason.
 - Gifts: when the shopper buys a gift, offer once to write a short greeting with them (ask who it is for and the occasion, then write 2-3 warm lines in their language). When they approve it, call set_gift_message, and mention gift wrapping if the store information offers it.
 - Always end your turn with at least one sentence to the shopper, also after showing cards.
-- Sets: when the shopper asks for several items together, a set, or "to buy together", use show_bundle (not show_products). When the shopper wants a gift or "something for" a person or occasion within a budget, you may build one set of 2-4 matching in-stock items from the same collection or use, within the budget, and call show_bundle (one button adds all). Prefer one clear set over a list.
+- Sets: when the shopper asks for several items together, 2 or more items, a set, or "to buy together", you must build it with show_bundle from 2-4 different products (not show_products). A single product whose name includes "set"/"סט" does not count as building a set. When the shopper wants a gift or "something for" a person or occasion within a budget, you may build one set of 2-4 matching in-stock items from the same collection or use, within the budget, and call show_bundle (one button adds all). Prefer one clear set over a list.
 - Photos: when the shopper sends a photo (their table, kitchen, a piece they own), describe briefly what you see that matters (colors, style), then recommend 1-3 products that match, with show_products.
 - Sold out or no open date: offer to put them on the waitlist (join_waitlist, with consent and phone) instead of only sending them to WhatsApp.
 - Not buying now: if the shopper is buying for a later occasion, offer a reminder a week before it (remind_me, with consent).
@@ -296,6 +296,28 @@ TXT;
 		} catch ( \Throwable $e ) {
 			error_log( 'AISR: ' . get_class( $e ) . ': ' . $e->getMessage() ); // phpcs:ignore
 			return self::failure( 'משהו השתבש אצלי. אפשר לנסות שוב, או לדבר עם הצוות.', $tools );
+		}
+
+		// A Hebrew question answered in English (it happens with the fast model): ask once more, in Hebrew.
+		$joined = implode( ' ', $texts );
+		if ( isset( $client ) && preg_match( '/\p{Hebrew}/u', $message ) && ! preg_match( '/\p{Hebrew}/u', $joined ) && preg_match_all( '/[A-Za-z]{2,}/', $joined ) >= 5 ) {
+			try {
+				$messages[] = array( 'role' => 'user', 'content' => '(Write that answer again in Hebrew. The shopper writes Hebrew.)' );
+				$again      = self::create( $client, $model, $system, $messages, true );
+				$cost      += self::cost_of( $model, (int) $again->usage->inputTokens, (int) $again->usage->outputTokens, (int) $again->usage->cacheReadInputTokens, (int) $again->usage->cacheCreationInputTokens );
+				$retry      = array();
+				foreach ( $again->content as $b ) {
+					if ( 'text' === $b->type && '' !== trim( (string) $b->text ) ) {
+						$retry[] = (string) $b->text;
+					}
+				}
+				$messages[] = array( 'role' => 'assistant', 'content' => json_decode( (string) wp_json_encode( $again->content ), true ) );
+				if ( $retry && preg_match( '/\p{Hebrew}/u', implode( ' ', $retry ) ) ) {
+					$texts = $retry;
+				}
+			} catch ( \Throwable $e ) {
+				error_log( 'AISR: Hebrew retry failed: ' . $e->getMessage() ); // phpcs:ignore
+			}
 		}
 
 		if ( $image_at >= 0 && isset( $messages[ $image_at ] ) ) {
