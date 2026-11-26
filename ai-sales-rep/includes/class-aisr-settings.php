@@ -82,6 +82,7 @@ class AISR_Settings {
 			'commission_pct'       => 5,
 			'attribution_days'     => 7,
 			'monthly_budget_usd'   => 30,
+			'model_mode'           => 'balanced',
 			'control_pct'          => 10,
 			// Privacy.
 			'privacy_mode'         => 'basic',
@@ -242,6 +243,7 @@ class AISR_Settings {
 			'handoff_channel'  => array( 'whatsapp', 'lead', 'email' ),
 			'privacy_mode'     => array( 'basic', 'extended' ),
 			'visibility'       => array( 'admins', 'all' ),
+			'model_mode'       => array( 'balanced', 'economy' ),
 		);
 		foreach ( $enums as $k => $allowed ) {
 			$v         = (string) ( $in[ $k ] ?? '' );
@@ -481,6 +483,7 @@ class AISR_Settings {
 					<?php
 					self::field_text( 'commission_pct', 'אחוז עמלה ממכירות משויכות', '', 'number' );
 					self::field_text( 'attribution_days', 'חלון שיוך (ימים)', 'מכירה נזקפת לבוט אם הגולש ענה או לחץ בשיחה ורכש בתוך החלון.', 'number' );
+					self::field_select( 'model_mode', 'מודל AI', array( 'balanced' => 'מאוזן: Haiku לשאלות פשוטות, Sonnet להשוואות ולשיחות ארוכות', 'economy' => 'חסכוני: Haiku בלבד (בערך פי 20 זול יותר מ-Sonnet)' ), 'במצב חסכוני גם השוואות והתנגדויות עוברות ל-Haiku.' );
 					self::field_text( 'monthly_budget_usd', 'תקרת עלות AI חודשית ($)', 'ב-80% נשלחת התראה. ב-100% הפניות היזומות נעצרות והבוט עונה רק למי שפונה אליו.', 'number' );
 					self::field_text( 'control_pct', 'קבוצת ביקורת (%)', 'אחוז הגולשים שלא מקבלים פניות יזומות, כדי למדוד את התוספת האמיתית במכירות.', 'number' );
 					?>

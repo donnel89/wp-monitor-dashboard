@@ -67,6 +67,9 @@ class AISR_Claude {
 
 	/** Fast model for openers and simple questions; the stronger one for comparisons, objections and long chats. */
 	public static function pick_model( string $message, int $user_turns ): string {
+		if ( 'economy' === AISR_Settings::get( 'model_mode' ) ) {
+			return self::FAST_MODEL;
+		}
 		if ( $user_turns >= 4 ) {
 			return self::SMART_MODEL;
 		}
@@ -233,7 +236,7 @@ TXT;
 				$messages[] = array( 'role' => 'user', 'content' => $results );
 
 				// A comparison or objection mid-turn moves the rest of the conversation to the stronger model.
-				if ( self::FAST_MODEL === $model && self::touched_hard_tools( $content ) ) {
+				if ( self::FAST_MODEL === $model && 'economy' !== AISR_Settings::get( 'model_mode' ) && self::touched_hard_tools( $content ) ) {
 					$model = self::SMART_MODEL;
 				}
 			}
