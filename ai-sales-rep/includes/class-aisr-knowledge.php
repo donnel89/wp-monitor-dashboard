@@ -233,6 +233,58 @@ class AISR_Knowledge {
 		return ( $counts[ $key ] >= 3 && isset( self::TOPICS[ $key ] ) ) ? self::TOPICS[ $key ][0] : '';
 	}
 
+	/**
+	 * The nearest occasion from settings within 30 days ("name | YYYY-MM-DD | category or words"),
+	 * with up to 6 store products for it (price, ready or made to order). Cached for an hour.
+	 */
+	public static function upcoming_occasion(): ?array {
+		$raw = trim( (string) AISR_Settings::get( 'occasions' ) );
+		if ( '' === $raw ) {
+			return null;
+		}
+		$today = new DateTime( 'today', wp_timezone() );
+		$best  = null;
+		foreach ( preg_split( '/\r\n|\r|\n/', $raw ) as $line ) {
+			$p = array_map( 'trim', explode( '|', $line ) );
+			if ( count( $p ) < 3 || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p[1] ) ) {
+				continue;
+			}
+			$d    = new DateTime( $p[1], wp_timezone() );
+			$days = (int) $today->diff( $d )->format( '%r%a' );
+			if ( $days >= -7 && $days <= 30 && ( ! $best || $days < $best['days'] ) ) { // Until a week into it (Hanukkah lasts 8 days).
+				$best = array( 'name' => sanitize_text_field( $p[0] ), 'date' => $p[1], 'days' => $days, 'match' => sanitize_text_field( $p[2] ) );
+			}
+		}
+		if ( ! $best ) {
+			return null;
+		}
+		$key    = 'aisr_occ_' . md5( wp_json_encode( $best ) );
+		$cached = get_transient( $key );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+		$ids  = array();
+		$term = get_term_by( 'name', $best['match'], 'product_cat' );
+		if ( $term ) {
+			$ids = wc_get_products( array( 'status' => 'publish', 'limit' => 6, 'category' => array( $term->slug ), 'return' => 'ids', 'orderby' => 'popularity' ) );
+		}
+		if ( ! $ids ) {
+			foreach ( array_filter( array_map( 'trim', explode( ',', $best['match'] ) ) ) as $w ) {
+				$ids = array_merge( $ids, wc_get_products( array( 'status' => 'publish', 'limit' => 3, 's' => $w, 'return' => 'ids' ) ) );
+			}
+		}
+		$items = array();
+		foreach ( array_slice( array_unique( $ids ), 0, 6 ) as $id ) {
+			$pr = wc_get_product( $id );
+			if ( $pr && $pr->is_in_stock() ) {
+				$items[] = array( 'id' => $id, 'name' => $pr->get_name(), 'price' => (float) $pr->get_price(), 'made_to_order' => 'onbackorder' === $pr->get_stock_status() );
+			}
+		}
+		$best['products'] = $items;
+		set_transient( $key, $best, HOUR_IN_SECONDS );
+		return $best;
+	}
+
 	/** Context for the page the visitor is on. Sent uncached, after the cached store block. */
 	public static function page_context( array $page ): string {
 		$lines   = array( '# Where the visitor is now' );
@@ -276,6 +328,10 @@ class AISR_Knowledge {
 			$lines[] = $gap > 0
 				? 'Free shipping from ' . $min . '. Cart subtotal ' . $sub . ', missing ' . ceil( $gap ) . '.'
 				: 'Free shipping from ' . $min . ' (this cart already qualifies).';
+		}
+		$occ = self::upcoming_occasion();
+		if ( $occ && $occ['products'] ) {
+			$lines[] = 'Upcoming occasion: ' . $occ['name'] . ' (' . $occ['date'] . ', ' . ( $occ['days'] >= 0 ? 'in ' . $occ['days'] . ' days' : 'started ' . abs( $occ['days'] ) . ' days ago' ) . '). Store products for it: ' . wp_json_encode( $occ['products'], JSON_UNESCAPED_UNICODE );
 		}
 		$h = self::holiday();
 		if ( $h ) {

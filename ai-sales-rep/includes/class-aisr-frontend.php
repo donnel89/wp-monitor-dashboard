@@ -217,6 +217,14 @@ class AISR_Frontend {
 		}
 		$out   = array();
 		$all = self::openers();
+		// The nearest occasion opens the conversation on the home page and the blog.
+		$occ = AISR_Knowledge::upcoming_occasion();
+		if ( $occ && $occ['products'] ) {
+			$names = implode( ', ', array_slice( array_column( $occ['products'], 'name' ), 0, 2 ) );
+			$when  = $occ['days'] > 1 ? $occ['name'] . ' בעוד ' . $occ['days'] . ' ימים' : ( $occ['days'] >= 0 ? $occ['name'] . ' כבר כאן' : $occ['name'] . ' עכשיו' );
+			$all['home'] = array( $when . ' 🙂 מחפשים משהו לחג או מתנה? יש לנו למשל ' . $names . '.', array( 'תראו לי', 'מתנה עד 200 ₪', 'רק מסתכלים' ) );
+			$all['blog'] = $all['home'];
+		}
 		if ( $cat_opener ) {
 			$all['category'] = $cat_opener;
 		}

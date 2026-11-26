@@ -104,6 +104,7 @@ class AISR_Settings {
 			'holiday_name'         => '',
 			'holiday_date'         => '',
 			'brand_story'          => '',
+			'occasions'            => '',
 			'opener_copy'          => '',
 			'reminder_channel'     => 'email',
 			'control_pct'          => 10,
@@ -252,7 +253,7 @@ class AISR_Settings {
 		foreach ( $text as $k ) {
 			$out[ $k ] = sanitize_text_field( $in[ $k ] ?? '' );
 		}
-		foreach ( array( 'advantages', 'knowledge_extra', 'diagnostic_questions' ) as $k ) {
+		foreach ( array( 'advantages', 'knowledge_extra', 'diagnostic_questions', 'occasions' ) as $k ) {
 			$out[ $k ] = sanitize_textarea_field( $in[ $k ] ?? '' );
 		}
 		foreach ( array( 'avatar_url', 'credit_url', 'privacy_url' ) as $k ) {
@@ -467,6 +468,7 @@ class AISR_Settings {
 					self::field_text( 'free_ship_gap', 'הצעה להשלים למשלוח חינם (₪)', 'כשחסר בסל עד הסכום הזה, הבוט מציע מוצר קטן שמשלים. 0 = כבוי. הסף עצמו נקרא מהגדרות המשלוח בווקומרס.', 'number' );
 					self::field_text( 'ready_days', 'זמן אספקה למוצר במלאי (ימי עסקים)', '', 'number' );
 					self::field_text( 'made_days', 'זמן הכנה למוצר בהזמנה מראש (ימי עסקים)', '', 'number' );
+					self::field_textarea( 'occasions', 'אירועים ומוצרים להם', 'שורה לכל אירוע: שם | תאריך YYYY-MM-DD | קטגוריה או מילים של המוצרים. לדוגמה: חנוכה | 2026-12-04 | חנוכה. בחודש שלפני האירוע הבוט מציע את המוצרים שלו, ובעמוד הבית פותח איתו.' );
 					self::field_text( 'holiday_name', 'חג קרוב', 'לדוגמה: חנוכה. הבוט בודק אם מוצר יגיע בזמן. ריק = כבוי.' );
 					self::field_text( 'holiday_date', 'תאריך החג', 'היום שעד אליו המתנה צריכה להגיע.', 'date' );
 					self::field_text( 'returns_summary', 'החזרות בקצרה', 'לדוגמה: החלפה או החזרה חינם תוך 14 יום' );
