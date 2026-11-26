@@ -117,7 +117,7 @@ How to sell (discovery, then recommendation):
 - Sets: when the shopper asks for several items together, 2 or more items, a set, or "to buy together", you must build it with show_bundle from 2-4 different products (not show_products). A single product whose name includes "set"/"סט" does not count as building a set. Build it from single items that fit together (e.g. a cup + a small plate + a spoon rest), found with search_products; do not search only for the word "set". If show_bundle returns an error, pick other items and try again. If it says some items need a choice on their page, tell the shopper which. When the shopper wants a gift or "something for" a person or occasion within a budget, you may build one set of 2-4 matching in-stock items from the same collection or use, within the budget, and call show_bundle (one button adds all). Prefer one clear set over a list.
 - One option: when a product comes in several options (color, size, glaze, quantity), recommend exactly one of them by name, with one short reason tied to what the shopper told you or showed you (e.g. "בצבע הקרם, כי הוא ישתלב עם העץ החם"). Name only the option you recommend: do not describe, compare or mention the other options at all, not even "if you prefer". If the shopper asks about another option, answer then.
 - Inviting a photo: when color, style, size or matching their home matters to the choice (a table, a kitchen, a corner for a plant, a set they already own, a gift for someone's home), invite once to send a photo so you can match, and include "📷 לשלוח תמונה" as one of the suggest_replies (it opens the camera). Do not invite again after they decline or already sent one.
-- Photos: when the shopper sends a photo (their table, kitchen, a piece they own), describe briefly what you see that matters (colors, style), then recommend 1-3 products that match, with show_products.
+- Photos: when the shopper sends a photo (their table, kitchen, a piece they own), describe in one sentence what you see that matters (colors, style). If you were helping them choose a product or one of its options (a color, a size), the photo is for that choice: recommend exactly one option of that same product, with a reason from the photo, and do not suggest other products. Only when no product was being discussed, recommend one product that matches, with show_products.
 - Sold out or no open date: offer to put them on the waitlist (join_waitlist, with consent and phone) instead of only sending them to WhatsApp.
 - Not buying now: if the shopper is buying for a later occasion, offer a reminder a week before it (remind_me, with consent).
 - Customer reviews: when the shopper hesitates, asks about quality, durability or whether they can trust the studio, compares with another shop, says it is expensive, or your proactive message was about copying the product name, comparing or leaving, call show_reviews once in the conversation with the product they are looking at. The card appears right after the first paragraph of your reply, so make the first paragraph one short lead-in (e.g. "הנה מה שלקוחות כתבו:"), then continue in a new paragraph if needed. Never say the card is "above". Never quote, paraphrase or invent reviews or names in your text.
@@ -219,8 +219,9 @@ TXT;
 		$history_key = 'aisr_h_' . $conv['uuid'];
 		$messages    = get_transient( $history_key );
 		$messages    = is_array( $messages ) ? $messages : array();
+		$photo_note  = $messages ? "\n(The shopper sent this photo in the middle of the conversation. It answers what you were discussing: if you were helping them choose a product, a color or an option, use the photo to choose for that same product. Do not switch to other products unless they ask.)" : '';
 		$messages[]  = $image
-			? array( 'role' => 'user', 'content' => array( array( 'type' => 'image', 'source' => array( 'type' => 'base64', 'mediaType' => $image['type'], 'data' => $image['data'] ) ), array( 'type' => 'text', 'text' => $message ) ) )
+			? array( 'role' => 'user', 'content' => array( array( 'type' => 'image', 'source' => array( 'type' => 'base64', 'mediaType' => $image['type'], 'data' => $image['data'] ) ), array( 'type' => 'text', 'text' => $message . $photo_note ) ) )
 			: array( 'role' => 'user', 'content' => $message );
 		$image_at    = $image ? count( $messages ) - 1 : -1;
 
@@ -269,6 +270,16 @@ TXT;
 				$results = array();
 				foreach ( $content as $block ) {
 					if ( 'text' === ( $block['type'] ?? '' ) && '' !== trim( (string) $block['text'] ) ) {
+						// After a tool call the model sometimes repeats what it already wrote: keep it once.
+						$norm = static fn( $t ) => preg_replace( '/\s+/u', ' ', trim( (string) $t ) );
+						$new  = $norm( $block['text'] );
+						$prev = $norm( implode( ' ', $texts ) );
+						if ( '' !== $prev && str_contains( $prev, $new ) ) {
+							continue;
+						}
+						if ( '' !== $prev && str_contains( $new, $prev ) ) {
+							$texts = array();
+						}
 						$texts[] = (string) $block['text'];
 					} elseif ( 'tool_use' === ( $block['type'] ?? '' ) ) {
 						$results[] = array(

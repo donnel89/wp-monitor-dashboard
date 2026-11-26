@@ -182,7 +182,7 @@
 			var max = 1024, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
 			var cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
 			cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
-			sendMessage(input.value.trim() || 'מה יתאים לזה?', cv.toDataURL('image/jpeg', 0.8));
+			sendMessage(input.value.trim() || (history.length ? 'הנה תמונה' : 'מה יתאים לזה?'), cv.toDataURL('image/jpeg', 0.8)); // Mid-conversation the photo answers the open question.
 		};
 		img.src = url;
 	});
