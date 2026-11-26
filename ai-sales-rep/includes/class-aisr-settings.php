@@ -33,6 +33,8 @@ class AISR_Settings {
 	public static function defaults(): array {
 		return array(
 			'enabled'              => 1,
+			// 'admins' = only logged-in shop managers see the chat (safe testing on a live site); 'all' = everyone.
+			'visibility'           => 'admins',
 			'api_key'              => '',
 			// Persona.
 			'persona_name'         => 'נועה',
@@ -61,6 +63,7 @@ class AISR_Settings {
 			'handoff_email'        => get_option( 'admin_email' ),
 			'hours_start'          => '09:00',
 			'hours_end'            => '18:00',
+			'hours_friday_end'     => '',
 			'work_days'            => array( 0, 1, 2, 3, 4 ),
 			// Triggers.
 			'min_pages'            => 2,
@@ -121,12 +124,15 @@ class AISR_Settings {
 		$day  = (int) $now->format( 'w' );
 		$time = $now->format( 'H:i' );
 		$days = array_map( 'intval', (array) $s['work_days'] );
-		return in_array( $day, $days, true ) && $time >= $s['hours_start'] && $time < $s['hours_end'];
+		$end  = ( 5 === $day && '' !== (string) $s['hours_friday_end'] ) ? $s['hours_friday_end'] : $s['hours_end'];
+		return in_array( $day, $days, true ) && $time >= $s['hours_start'] && $time < $end;
 	}
 
 	public static function init(): void {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_post_aisr_save_settings', array( __CLASS__, 'save' ) );
+		add_action( 'admin_post_aisr_import_settings', array( __CLASS__, 'import' ) );
+		add_action( 'admin_post_aisr_test_connection', array( __CLASS__, 'test_connection' ) );
 	}
 
 	public static function menu(): void {
@@ -146,12 +152,60 @@ class AISR_Settings {
 		}
 		check_admin_referer( 'aisr_save_settings' );
 
-		$in  = wp_unslash( $_POST['aisr'] ?? array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$in = wp_unslash( $_POST['aisr'] ?? array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		update_option( self::OPTION, self::sanitize( is_array( $in ) ? $in : array() ), false );
+		AISR_Knowledge::flush_cache();
+
+		wp_safe_redirect( add_query_arg( array( 'page' => 'aisr-settings', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/** Import a JSON preset (e.g. prepared per store). The API key is never imported or exported. */
+	public static function import(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( 'forbidden' );
+		}
+		check_admin_referer( 'aisr_import_settings' );
+		$json = json_decode( (string) wp_unslash( $_POST['aisr_json'] ?? '' ), true ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		if ( ! is_array( $json ) ) {
+			wp_safe_redirect( add_query_arg( array( 'page' => 'aisr-settings', 'import_error' => 1 ), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+		unset( $json['api_key'] );
+		$merged = array_merge( self::all(), $json );
+		// Checkbox semantics in sanitize(): a missing key means "off", so keep current values for booleans not in the preset.
+		update_option( self::OPTION, self::sanitize( $merged ), false );
+		AISR_Knowledge::flush_cache();
+		wp_safe_redirect( add_query_arg( array( 'page' => 'aisr-settings', 'imported' => 1 ), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/** Export without the API key. */
+	public static function export_json(): string {
+		$s = self::all();
+		unset( $s['api_key'] );
+		return (string) wp_json_encode( $s, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+	}
+
+	/** One tiny request to check the key and network from this server. */
+	public static function test_connection(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( 'forbidden' );
+		}
+		check_admin_referer( 'aisr_test_connection' );
+		$result = AISR_Claude::ping();
+		set_transient( 'aisr_ping_result_' . get_current_user_id(), $result, 120 );
+		wp_safe_redirect( add_query_arg( array( 'page' => 'aisr-settings', 'tested' => 1 ), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/** Clean a raw settings array (from the form or an imported preset). */
+	public static function sanitize( array $in ): array {
 		$d   = self::defaults();
 		$old = self::all();
 		$out = array();
 
-		$text = array( 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end' );
+		$text = array( 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
 		foreach ( $text as $k ) {
 			$out[ $k ] = sanitize_text_field( $in[ $k ] ?? '' );
 		}
@@ -169,6 +223,7 @@ class AISR_Settings {
 			'position'         => array( 'left', 'right' ),
 			'handoff_channel'  => array( 'whatsapp', 'lead', 'email' ),
 			'privacy_mode'     => array( 'basic', 'extended' ),
+			'visibility'       => array( 'admins', 'all' ),
 		);
 		foreach ( $enums as $k => $allowed ) {
 			$v         = (string) ( $in[ $k ] ?? '' );
@@ -210,11 +265,7 @@ class AISR_Settings {
 			$out['api_key'] = '';
 		}
 
-		update_option( self::OPTION, $out, false );
-		AISR_Knowledge::flush_cache();
-
-		wp_safe_redirect( add_query_arg( array( 'page' => 'aisr-settings', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
-		exit;
+		return $out;
 	}
 
 	/* ---------- rendering helpers ---------- */
@@ -291,16 +342,44 @@ class AISR_Settings {
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>נציג מכירות AI · הגדרות</h1>
-			<?php if ( isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification ?>
-				<div class="notice notice-success is-dismissible"><p>ההגדרות נשמרו.</p></div>
+			<?php if ( isset( $_GET['updated'] ) || isset( $_GET['imported'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification ?>
+				<div class="notice notice-success is-dismissible"><p><?php echo isset( $_GET['imported'] ) ? 'ההגדרות יובאו.' : 'ההגדרות נשמרו.'; // phpcs:ignore ?></p></div>
 			<?php endif; ?>
+			<?php if ( isset( $_GET['import_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification ?>
+				<div class="notice notice-error"><p>הקובץ שהודבק אינו JSON תקין.</p></div>
+			<?php endif; ?>
+			<?php
+			$ping = isset( $_GET['tested'] ) ? get_transient( 'aisr_ping_result_' . get_current_user_id() ) : null; // phpcs:ignore WordPress.Security.NonceVerification
+			if ( is_array( $ping ) ) :
+				?>
+				<div class="notice <?php echo $ping['ok'] ? 'notice-success' : 'notice-error'; ?>"><p><?php echo esc_html( $ping['message'] ); ?></p></div>
+			<?php endif; ?>
+			<?php if ( 'admins' === $s['visibility'] ) : ?>
+				<div class="notice notice-info"><p>מצב בדיקה: רק מנהלי חנות מחוברים רואים את הצ'אט. גולשים לא רואים כלום.</p></div>
+			<?php endif; ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:12px 0">
+				<input type="hidden" name="action" value="aisr_test_connection">
+				<?php wp_nonce_field( 'aisr_test_connection' ); ?>
+				<?php submit_button( 'בדיקת חיבור ל-Claude', 'secondary', 'submit', false ); ?>
+			</form>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="aisr_save_settings">
 				<?php wp_nonce_field( 'aisr_save_settings' ); ?>
 
 				<h2>כללי</h2>
 				<table class="form-table" role="presentation">
-					<?php self::field_check( 'enabled', 'הפעלה', 'הצ\'אט מוצג באתר' ); ?>
+					<?php
+					self::field_check( 'enabled', 'הפעלה', 'הצ\'אט פעיל' );
+					self::field_select(
+						'visibility',
+						'מי רואה את הצ\'אט',
+						array(
+							'admins' => 'רק מנהלי חנות מחוברים (מצב בדיקה באתר החי)',
+							'all'    => 'כל הגולשים',
+						),
+						'אחרי מעבר ל"כל הגולשים" צריך לנקות את המטמון (Breeze / Cloudflare / Varnish) כדי שהעמודים יכללו את הצ\'אט.'
+					);
+					?>
 					<tr><th scope="row"><label for="aisr_api_key">מפתח Claude API</label></th><td>
 						<input type="password" autocomplete="off" class="regular-text" id="aisr_api_key" name="aisr[api_key]" value="">
 						<p class="description"><?php echo esc_html( $key_note ); ?> אפשר גם להגדיר <code>AISR_ANTHROPIC_API_KEY</code> ב-wp-config.php.</p>
@@ -348,6 +427,7 @@ class AISR_Settings {
 					self::field_text( 'handoff_email', 'מייל ללידים והתראות', '', 'email' );
 					self::field_text( 'hours_start', 'שעת פתיחה', '', 'time' );
 					self::field_text( 'hours_end', 'שעת סגירה', '', 'time' );
+					self::field_text( 'hours_friday_end', 'שעת סגירה ביום שישי', 'ריק = כמו בשאר הימים', 'time' );
 					self::field_multi( 'work_days', 'ימי פעילות', $days );
 					?>
 				</table>
@@ -409,6 +489,18 @@ class AISR_Settings {
 
 				<?php submit_button( 'שמירה' ); ?>
 			</form>
+
+			<h2>ייבוא וייצוא הגדרות</h2>
+			<p>מעבירים הגדרות בין אתרים או מתקינים הגדרות שהוכנו מראש. מפתח ה-API לא נכלל.</p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="aisr_import_settings">
+				<?php wp_nonce_field( 'aisr_import_settings' ); ?>
+				<textarea name="aisr_json" class="large-text code" rows="10" dir="ltr" placeholder="{ ... }"></textarea>
+				<?php submit_button( 'ייבוא', 'secondary' ); ?>
+			</form>
+			<details><summary>ההגדרות הנוכחיות (JSON)</summary>
+				<textarea readonly class="large-text code" rows="12" dir="ltr"><?php echo esc_textarea( self::export_json() ); ?></textarea>
+			</details>
 		</div>
 		<?php
 	}

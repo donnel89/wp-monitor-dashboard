@@ -94,6 +94,9 @@ class AISR_REST {
 		if ( empty( $s['enabled'] ) || '' === AISR_Settings::api_key() ) {
 			return new WP_Error( 'aisr_disabled', 'chat disabled', array( 'status' => 503 ) );
 		}
+		if ( 'all' !== $s['visibility'] && ! current_user_can( 'manage_woocommerce' ) ) {
+			return new WP_Error( 'aisr_test_mode', 'chat is in test mode', array( 'status' => 403 ) );
+		}
 		if ( self::rate_limited( 'chat', 40, HOUR_IN_SECONDS ) ) {
 			return new WP_Error( 'aisr_rate', 'too many messages', array( 'status' => 429 ) );
 		}

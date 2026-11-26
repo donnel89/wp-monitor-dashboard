@@ -133,6 +133,26 @@ TXT;
 		return implode( "\n", $lines );
 	}
 
+	/** Connection check from the settings page: ['ok' => bool, 'message' => string]. */
+	public static function ping(): array {
+		if ( '' === AISR_Settings::api_key() ) {
+			return array( 'ok' => false, 'message' => 'לא הוגדר מפתח API.' );
+		}
+		try {
+			$r = self::client()->messages->create(
+				model: self::FAST_MODEL,
+				maxTokens: 64,
+				outputConfig: array( 'effort' => 'low' ),
+				messages: array( array( 'role' => 'user', 'content' => 'Reply with the single word OK.' ) ),
+			);
+			return array( 'ok' => true, 'message' => 'החיבור ל-Claude תקין (' . $r->model . ').' );
+		} catch ( \Anthropic\Core\Exceptions\AuthenticationException | \Anthropic\Core\Exceptions\PermissionDeniedException $e ) {
+			return array( 'ok' => false, 'message' => 'המפתח נדחה: ' . $e->getMessage() );
+		} catch ( \Throwable $e ) {
+			return array( 'ok' => false, 'message' => 'החיבור נכשל: ' . $e->getMessage() );
+		}
+	}
+
 	/* ---------- chat ---------- */
 
 	private static function client(): \Anthropic\Client {

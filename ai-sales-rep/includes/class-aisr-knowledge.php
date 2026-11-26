@@ -42,7 +42,7 @@ class AISR_Knowledge {
 				$lines[] = $label . ': ' . $value;
 			}
 		}
-		$lines[] = 'Business hours: ' . $s['hours_start'] . '-' . $s['hours_end'] . ', days ' . implode( ',', self::day_names( (array) $s['work_days'] ) );
+		$lines[] = 'Business hours: ' . $s['hours_start'] . '-' . $s['hours_end'] . ', days ' . implode( ',', self::day_names( (array) $s['work_days'] ) ) . ( $s['hours_friday_end'] ? ' (Friday until ' . $s['hours_friday_end'] . ')' : '' );
 
 		$adv = AISR_Settings::advantages();
 		if ( $adv ) {

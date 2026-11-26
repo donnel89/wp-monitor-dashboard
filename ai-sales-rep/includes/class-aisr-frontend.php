@@ -114,6 +114,9 @@ class AISR_Frontend {
 		if ( empty( $s['enabled'] ) || '' === AISR_Settings::api_key() || is_admin() ) {
 			return;
 		}
+		if ( 'all' !== $s['visibility'] && ! current_user_can( 'manage_woocommerce' ) ) {
+			return; // Test mode: shop managers only. Logged-in pages are not served from page cache.
+		}
 		$page   = self::page_info();
 		$budget = AISR_Claude::budget_state();
 
@@ -131,6 +134,8 @@ class AISR_Frontend {
 				'rest'          => esc_url_raw( rest_url( AISR_REST::NS ) ),
 				'storeApi'      => esc_url_raw( rest_url( 'wc/store/v1' ) ),
 				'storeNonce'    => wp_create_nonce( 'wc_store_api' ),
+				// Test mode only (logged-in, uncached pages): lets REST see the logged-in manager.
+				'restNonce'     => 'all' === $s['visibility'] ? '' : wp_create_nonce( 'wp_rest' ),
 				'page'          => $page,
 				'persona'       => array(
 					'name'   => $s['persona_name'],

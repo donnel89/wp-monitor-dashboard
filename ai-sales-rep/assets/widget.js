@@ -55,9 +55,11 @@
 		return { type: page.type, product_id: page.product_id, title: page.title, viewed: viewed.filter(function (id) { return id !== page.product_id; }) };
 	}
 	function post(path, body) {
+		var h = { 'Content-Type': 'application/json' };
+		if (C.restNonce) h['X-WP-Nonce'] = C.restNonce;
 		return fetch(C.rest + path, {
 			method: 'POST', credentials: 'same-origin',
-			headers: { 'Content-Type': 'application/json' },
+			headers: h,
 			body: JSON.stringify(body)
 		}).then(function (r) { if (!r.ok) throw r; return r.json(); });
 	}
@@ -68,13 +70,23 @@
 	}
 	if (!get(SS, 'visit_logged', false)) { set(SS, 'visit_logged', true); track('visit'); }
 
-	var storeNonce = C.storeNonce;
+	// Pages are often served from a full-page cache, so the nonce printed in the HTML can be stale.
+	// Get a fresh one from the cart endpoint before the first cart action.
+	var storeNonce = C.storeNonce, nonceReady = null;
+	function freshNonce() {
+		if (!nonceReady) {
+			nonceReady = fetch(C.storeApi + '/cart', { credentials: 'same-origin' }).then(function (r) {
+				var n = r.headers.get('Nonce'); if (n) storeNonce = n;
+			}).catch(function () { /* keep the printed nonce */ });
+		}
+		return nonceReady;
+	}
 	function storeApi(path, body) {
-		return fetch(C.storeApi + path, {
+		return freshNonce().then(function () { return fetch(C.storeApi + path, {
 			method: 'POST', credentials: 'same-origin',
 			headers: { 'Content-Type': 'application/json', 'Nonce': storeNonce },
 			body: JSON.stringify(body)
-		}).then(function (r) {
+		}); }).then(function (r) {
 			var n = r.headers.get('Nonce'); if (n) storeNonce = n;
 			return r.json().then(function (j) { if (!r.ok) throw j; return j; });
 		});
@@ -266,6 +278,32 @@
 		fired = true; // No proactive message once the shopper opened the chat.
 		panel.hidden = false; root.classList.add('aisr-open');
 		dot.hidden = true;
+
+	/* ---------- stay above sticky bottom bars (e.g. a floating add-to-cart bar on phones) ---------- */
+	var baseBottom = C.bottomOffset || 20;
+	function liftAboveBars() {
+		if (root.classList.contains('aisr-open')) return;
+		var lift = 0, w = window.innerWidth, h = window.innerHeight;
+		var probes = [h - 2, h - 20];
+		probes.forEach(function (y) {
+			var els = document.elementsFromPoint ? document.elementsFromPoint(w / 2, y) : [];
+			for (var i = 0; i < els.length; i++) {
+				var e = els[i];
+				if (root.contains(e) || e === document.body || e === document.documentElement) continue;
+				var cs = getComputedStyle(e);
+				if ((cs.position === 'fixed' || cs.position === 'sticky') && cs.visibility !== 'hidden') {
+					var r = e.getBoundingClientRect();
+					if (r.width >= w * 0.5 && r.bottom >= h - 4 && r.height < h * 0.4) lift = Math.max(lift, h - r.top);
+				}
+			}
+		});
+		root.style.setProperty('--aisr-bottom', (lift ? lift + 12 : baseBottom) + 'px');
+	}
+	var liftTimer = null;
+	function scheduleLift() { if (!liftTimer) liftTimer = setTimeout(function () { liftTimer = null; liftAboveBars(); }, 250); }
+	window.addEventListener('scroll', scheduleLift, { passive: true });
+	window.addEventListener('resize', scheduleLift);
+	setTimeout(liftAboveBars, 800);
 		renderHistory();
 		if (pendingOpener && !history.length) {
 			bubble('bot', pendingOpener.text, false);
