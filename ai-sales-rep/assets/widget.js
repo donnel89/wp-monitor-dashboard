@@ -15,7 +15,7 @@
 	var LS = hasConsent ? store('localStorage') : null;
 	// Test mode (only shop managers see the chat): forget the visit on every page load, so each
 	// trigger can be tried again without opening a new tab. Live visitors keep the normal rules.
-	if (C.testMode) {
+	if (C.testMode || /[?&]aisr_debug=1/.test(location.search)) { // Also when checking with ?aisr_debug=1: every load is a fresh visit.
 		[SS, LS].forEach(function (s) {
 			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0 && ['aisr_pages', 'aisr_viewed', 'aisr_policy_seen', 'aisr_added'].indexOf(k) === -1; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
 		});
