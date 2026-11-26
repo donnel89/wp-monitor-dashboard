@@ -259,6 +259,12 @@ class AISR_Knowledge {
 				$lines[] = 'Products viewed earlier in this visit: ' . implode( ', ', $names );
 			}
 		}
+		if ( ! empty( $page['order_items'] ) ) {
+			$lines[] = 'Order just placed (thank-you page): ' . sanitize_text_field( $page['order_items'] );
+		}
+		if ( ! empty( $page['category'] ) ) {
+			$lines[] = 'Category: ' . sanitize_text_field( $page['category'] );
+		}
 		$cart = self::cart_summary();
 		if ( $cart ) {
 			$lines[] = 'Cart: ' . $cart;
@@ -349,6 +355,10 @@ class AISR_Knowledge {
 			'review_count'  => $p->get_review_count(),
 			'url'           => urldecode( (string) get_permalink( $p->get_id() ) ),
 		);
+		$sold = AISR_Growth::sales_30d()[ $p->get_id() ] ?? 0;
+		if ( $sold ) {
+			$d['sold_30d'] = $sold; // Real units from paid orders, for honest social proof.
+		}
 		$attrs = array();
 		foreach ( $p->get_attributes() as $attr ) {
 			if ( $attr instanceof WC_Product_Attribute ) {

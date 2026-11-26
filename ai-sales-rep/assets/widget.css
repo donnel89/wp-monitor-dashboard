@@ -172,3 +172,10 @@
 @media (prefers-reduced-motion: reduce) {
 	.aisr-root * { animation: none !important; transition: none !important; }
 }
+
+/* Gift sets, photo button and sent photos */
+.aisr-bundle { border: 1.5px solid var(--aisr-color); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+.aisr-bundle-title { font-weight: 700; color: var(--aisr-ink); }
+.aisr-bundle .aisr-card-btn { display: none; }
+.aisr-attach { flex: none; width: 40px !important; height: 40px; margin: 0 !important; padding: 0 !important; border: 0; border-radius: 50%; background: transparent; color: var(--aisr-muted); display: grid; place-items: center; cursor: pointer; }
+.aisr-photo { align-self: flex-end; max-width: 60%; border-radius: 12px; margin: 4px 0; }

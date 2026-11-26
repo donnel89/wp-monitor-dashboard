@@ -57,6 +57,58 @@ class AISR_Tools {
 				),
 			),
 			array(
+				'name'        => 'show_bundle',
+				'description' => 'Show a ready gift set or bundle of 2-4 products that go together, with one button that adds all of them to the cart. Only simple, purchasable products; check them with search_products/get_product first. Give the set a short title (e.g. "סט מתנה למארחת").',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'title'       => array( 'type' => 'string' ),
+						'product_ids' => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ), 'minItems' => 2, 'maxItems' => 4 ),
+					),
+					'required'   => array( 'title', 'product_ids' ),
+				),
+			),
+			array(
+				'name'        => 'set_gift_message',
+				'description' => 'Save the gift greeting the shopper approved, so it is added to their order for the studio. Write the greeting with them first and show it; call this only after they say it is good.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array( 'message' => array( 'type' => 'string' ) ),
+					'required'   => array( 'message' ),
+				),
+			),
+			array(
+				'name'        => 'join_waitlist',
+				'description' => 'Add the shopper to the back-in-stock list for an out-of-stock product (or a workshop with no open date), so the store messages them when it is available. Only with their explicit consent and their phone number.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'product_id' => array( 'type' => 'integer' ),
+						'name'       => array( 'type' => 'string' ),
+						'phone'      => array( 'type' => 'string' ),
+						'consent'    => array( 'type' => 'boolean' ),
+					),
+					'required'   => array( 'product_id', 'phone', 'consent' ),
+				),
+			),
+			array(
+				'name'        => 'remind_me',
+				'description' => 'Schedule a reminder before an occasion (a holiday, a birthday) with the products the shopper looked at. The store sends it on that date. Only with explicit consent and a phone or email. date is YYYY-MM-DD, about a week before the occasion.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'date'        => array( 'type' => 'string' ),
+						'occasion'    => array( 'type' => 'string' ),
+						'name'        => array( 'type' => 'string' ),
+						'phone'       => array( 'type' => 'string' ),
+						'email'       => array( 'type' => 'string' ),
+						'product_ids' => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ) ),
+						'consent'     => array( 'type' => 'boolean' ),
+					),
+					'required'   => array( 'date', 'occasion', 'consent' ),
+				),
+			),
+			array(
 				'name'        => 'show_products',
 				'description' => 'Show 1-3 product cards in the chat, with image, price and an add-to-cart button. Use when recommending or comparing products.',
 				'inputSchema' => array(
@@ -162,6 +214,10 @@ class AISR_Tools {
 				'search_products' => array( 'products' => AISR_Knowledge::search( $input ) ),
 				'get_product'     => AISR_Knowledge::product_details( (int) ( $input['product_id'] ?? 0 ), true ) ?? array( 'error' => 'not_found' ),
 				'show_products'   => $this->show_products( $input ),
+				'show_bundle'     => $this->show_bundle( $input ),
+				'set_gift_message' => array( 'saved' => AISR_Growth::set_gift_message( (string) ( $input['message'] ?? '' ) ), 'note' => 'It will be added to the order as a note for the studio.' ),
+				'join_waitlist'   => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::join_waitlist( (int) ( $input['product_id'] ?? 0 ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ) ) ),
+				'remind_me'       => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::add_reminder( (string) ( $input['date'] ?? '' ), (string) ( $input['occasion'] ?? '' ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ), (string) ( $input['email'] ?? '' ), (array) ( $input['product_ids'] ?? array() ) ) ),
 				'suggest_replies' => $this->suggest_replies( $input ),
 				'record_insight'  => $this->record_insight( $input ),
 				'offer_coupon'    => $this->offer_coupon( $input ),
@@ -187,6 +243,30 @@ class AISR_Tools {
 			}
 		}
 		return array( 'shown' => $shown );
+	}
+
+	/** A set the shopper can add in one tap: only simple, purchasable products. */
+	private function show_bundle( array $in ): array {
+		$items = array();
+		$total = 0.0;
+		foreach ( array_slice( array_map( 'absint', (array) ( $in['product_ids'] ?? array() ) ), 0, 4 ) as $id ) {
+			$p = wc_get_product( $id );
+			if ( $p && 'publish' === $p->get_status() && $p->is_type( 'simple' ) && $p->is_purchasable() && $p->is_in_stock() ) {
+				$c        = AISR_Knowledge::product_card( $p );
+				$items[]  = $c;
+				$total   += (float) wc_get_price_to_display( $p );
+			}
+		}
+		if ( count( $items ) < 2 ) {
+			return array( 'error' => 'need_two_simple_purchasable_products' );
+		}
+		$this->actions[] = array(
+			'type'  => 'bundle',
+			'title' => sanitize_text_field( (string) ( $in['title'] ?? 'סט' ) ),
+			'items' => $items,
+			'total' => html_entity_decode( wp_strip_all_tags( wc_price( $total ) ) ),
+		);
+		return array( 'shown' => array_column( $items, 'id' ), 'total' => $total );
 	}
 
 	private function suggest_replies( array $in ): array {

@@ -225,6 +225,20 @@ class AISR_Dashboard {
 				<?php if ( ! $st['questions'] ) : ?><li>אין שאלות פתוחות.</li><?php endif; ?>
 			</ul>
 
+			<h2 id="aisr-weekly">דוח שבועי: למה לא קנו ומה לתקן</h2>
+			<?php $aisr_rep = get_option( 'aisr_weekly_report' ); ?>
+			<?php if ( $aisr_rep ) : ?>
+				<p class="description"><?php echo esc_html( 'נוצר ' . wp_date( 'd/m/Y H:i', (int) $aisr_rep['t'] ) . ' מתוך ' . (int) $aisr_rep['chats'] . ' שיחות. נשלח גם במייל פעם בשבוע.' ); ?></p>
+				<div style="white-space:pre-wrap;background:#fff;border:1px solid #dcdcde;padding:12px;max-width:900px"><?php echo esc_html( $aisr_rep['text'] ); ?></div>
+			<?php else : ?>
+				<p class="description">עדיין אין דוח. הדוח נוצר פעם בשבוע מהשיחות ונשלח במייל.<?php $aisr_err = get_option( 'aisr_report_error' ); echo $aisr_err ? ' ' . esc_html( 'הניסיון האחרון נכשל: ' . $aisr_err ) : ''; ?></p>
+			<?php endif; ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="aisr_weekly_report_now">
+				<?php wp_nonce_field( 'aisr_weekly_report_now' ); ?>
+				<?php submit_button( 'ליצור דוח עכשיו (בלי מייל)', 'secondary', 'aisr_report_btn', false ); ?>
+			</form>
+
 			<h2>חיפושים באתר שלא מצאו כלום</h2>
 			<p class="description">מה גולשים חיפשו ולא מצאו. אפשר להוסיף מוצר, מילת חיפוש בתיאור, או הפניה.</p>
 			<?php $aisr_fs = (array) get_option( 'aisr_failed_searches', array() ); uasort( $aisr_fs, static fn( $a, $b ) => $b['n'] <=> $a['n'] ); ?>

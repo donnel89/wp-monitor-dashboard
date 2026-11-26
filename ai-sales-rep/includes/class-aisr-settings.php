@@ -40,6 +40,7 @@ class AISR_Settings {
 			'policy_return'      => 'חזרה מעמוד מדיניות לעמוד מוצר',
 			'cart_waiting'       => 'סל מביקור קודם שמחכה',
 			'footer_reached'     => 'גלילה עד סוף עמוד המוצר בלי פעולה',
+			'thankyou'           => 'עמוד תודה אחרי הזמנה',
 		);
 	}
 

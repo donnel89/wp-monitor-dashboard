@@ -29,6 +29,8 @@ class AISR_Cron {
 	public static function run(): void {
 		AISR_DB::purge_old();
 		self::cart_reminders();
+		AISR_Growth::daily_tasks();
+		AISR_Growth::maybe_weekly_report();
 		if ( 'whatsapp_digest' === AISR_Settings::get( 'reminder_channel' ) ) {
 			self::whatsapp_digest();
 		}

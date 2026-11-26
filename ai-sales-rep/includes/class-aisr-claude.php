@@ -112,6 +112,15 @@ How to sell (discovery, then recommendation):
 - Call record_insight as soon as you learn the use case, recipient, priority, budget or a competitor.
 - Then recommend exactly one clear option, explaining in one sentence why it fits what they said: confirm the product they are viewing if it fits; or suggest a better-fitting product; or briefly compare two and pick one. Use search_products/get_product first, recommend only published purchasable products (in stock, or made_to_order), and call show_products to show the card(s).
 - After the shopper decides or adds to cart, or asks what goes with it, suggest exactly one complementary product that relates to what they told you: first the product's cross_sell_ids, otherwise a related_ids product from the same collection (a shared word in the name) or category. Prefer in-stock items, call show_products, and give one reason.
+- Gifts: when the shopper buys a gift, offer once to write a short greeting with them (ask who it is for and the occasion, then write 2-3 warm lines in their language). When they approve it, call set_gift_message, and mention gift wrapping if the store information offers it.
+- Always end your turn with at least one sentence to the shopper, also after showing cards.
+- Sets: when the shopper asks for several items together, a set, or "to buy together", use show_bundle (not show_products). When the shopper wants a gift or "something for" a person or occasion within a budget, you may build one set of 2-4 matching in-stock items from the same collection or use, within the budget, and call show_bundle (one button adds all). Prefer one clear set over a list.
+- Photos: when the shopper sends a photo (their table, kitchen, a piece they own), describe briefly what you see that matters (colors, style), then recommend 1-3 products that match, with show_products.
+- Sold out or no open date: offer to put them on the waitlist (join_waitlist, with consent and phone) instead of only sending them to WhatsApp.
+- Not buying now: if the shopper is buying for a later occasion, offer a reminder a week before it (remind_me, with consent).
+- Social proof: product details may include sold_30d (real units sold in the last 30 days). Mention it only if it is 3 or more, with the exact number ("X הוזמנו בחודש האחרון"). Never invent popularity or scarcity.
+- Price objection ("expensive", "יקר"): explain in one or two sentences what goes into the price, using only the product description and store information (handmade, materials, how it is made, what it is safe for). If a cheaper in-stock item fits what they said, offer it. Mention payments in installments only if the store information says so.
+- Thank-you page: the order is placed. Thank them, answer questions about delivery, and you may suggest one complementary product as a separate new order. Do not offer to change their order or promise referral discounts.
 - Free shipping: when the page context says the cart is missing a small amount for free shipping, mention the gap once and suggest one inexpensive item that fits what is already in the cart. Never pressure.
 - Holidays: when the page context names an upcoming holiday and an item will not arrive in time (made_to_order, or in-stock when the context says so), say it before they add it to the cart, and offer an in-stock alternative or store pickup. Never promise a date the context does not support.
 - Made-to-order hesitation: if the shopper hesitates because of the lead time, offer to have the store update them; with their consent, call save_lead with the product in the note.
@@ -162,6 +171,34 @@ TXT;
 		}
 	}
 
+	/** One plain request to the fast model (weekly report). Returns '' on failure. */
+	public static function summarize( string $prompt ): string {
+		if ( '' === AISR_Settings::api_key() ) {
+			return '';
+		}
+		try {
+			$r = self::client()->messages->create(
+				model: self::FAST_MODEL,
+				maxTokens: 6000,
+				outputConfig: array( 'effort' => 'low' ),
+				messages: array( array( 'role' => 'user', 'content' => $prompt ) ),
+			);
+			$out = '';
+			foreach ( $r->content as $b ) {
+				if ( 'text' === $b->type ) {
+					$out .= $b->text;
+				}
+			}
+			if ( '' === trim( $out ) ) {
+				update_option( 'aisr_report_error', 'empty answer (stop: ' . $r->stopReason . ')', false );
+			}
+			return trim( $out );
+		} catch ( \Throwable $e ) {
+			update_option( 'aisr_report_error', get_class( $e ) . ': ' . mb_substr( $e->getMessage(), 0, 300 ), false );
+			return '';
+		}
+	}
+
 	/* ---------- chat ---------- */
 
 	private static function client(): \Anthropic\Client {
@@ -174,11 +211,14 @@ TXT;
 	/**
 	 * One shopper turn. Returns ['bubbles' => string[], 'cards' => [], 'replies' => [], 'actions' => [], 'model' => string].
 	 */
-	public static function chat( array $conv, string $message, array $page, string $opener = '' ): array {
+	public static function chat( array $conv, string $message, array $page, string $opener = '', ?array $image = null ): array {
 		$history_key = 'aisr_h_' . $conv['uuid'];
 		$messages    = get_transient( $history_key );
 		$messages    = is_array( $messages ) ? $messages : array();
-		$messages[]  = array( 'role' => 'user', 'content' => $message );
+		$messages[]  = $image
+			? array( 'role' => 'user', 'content' => array( array( 'type' => 'image', 'source' => array( 'type' => 'base64', 'mediaType' => $image['type'], 'data' => $image['data'] ) ), array( 'type' => 'text', 'text' => $message ) ) )
+			: array( 'role' => 'user', 'content' => $message );
+		$image_at    = $image ? count( $messages ) - 1 : -1;
 
 		$user_turns = (int) $conv['user_turns'] + 1;
 		$model      = self::pick_model( $message, $user_turns );
@@ -258,6 +298,9 @@ TXT;
 			return self::failure( 'משהו השתבש אצלי. אפשר לנסות שוב, או לדבר עם הצוות.', $tools );
 		}
 
+		if ( $image_at >= 0 && isset( $messages[ $image_at ] ) ) {
+			$messages[ $image_at ] = array( 'role' => 'user', 'content' => '[The shopper sent a photo] ' . $message ); // Do not keep image bytes in the history.
+		}
 		set_transient( $history_key, $messages, self::HISTORY_TTL );
 
 		self::add_cost( $cost );
@@ -265,7 +308,7 @@ TXT;
 		// Smaller models sometimes write a tool call as text ("[suggest_replies: "a", "b"]"). Turn quick replies into
 		// real buttons, and never show any bracketed tool name to the shopper.
 		$reply = preg_replace_callback(
-			'/\[\s*(suggest_replies|show_products|search_products|get_product|record_insight|offer_coupon|track_order|request_human|save_lead|flag_unanswered)\s*[:(][^\]]*\]/u',
+			'/\[\s*(suggest_replies|show_bundle|set_gift_message|join_waitlist|remind_me|show_products|search_products|get_product|record_insight|offer_coupon|track_order|request_human|save_lead|flag_unanswered)\s*[:(][^\]]*\]/u',
 			static function ( $m ) use ( $tools ) {
 				if ( 'suggest_replies' === $m[1] && ! $tools->replies && preg_match_all( '/["“”״]([^"“”״]{1,40})["“”״]/u', $m[0], $q ) ) {
 					$tools->replies = array_slice( array_map( 'sanitize_text_field', $q[1] ), 0, 4 );
@@ -275,6 +318,9 @@ TXT;
 			$reply
 		);
 		$reply = trim( preg_replace( "/\n{3,}/", "\n\n", (string) $reply ) );
+		if ( '' === $reply ) { // Smaller models sometimes end a turn with tool calls only.
+			$reply = $tools->cards || $tools->actions ? 'הנה מה שמצאתי בשבילכם:' : 'ספרו לי קצת יותר מה מחפשים, ואמצא את המתאים.';
+		}
 
 		$transcript   = json_decode( (string) $conv['transcript'], true ) ?: array();
 		$transcript[] = array( 'r' => 'u', 't' => AISR_Privacy::mask( $message ) );

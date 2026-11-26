@@ -65,6 +65,8 @@ class AISR_REST {
 			'product_id' => absint( $page['product_id'] ?? 0 ),
 			'title'      => sanitize_text_field( (string) ( $page['title'] ?? '' ) ),
 			'viewed'     => array_slice( array_map( 'absint', (array) ( $page['viewed'] ?? array() ) ), 0, 6 ),
+			'order_items' => mb_substr( sanitize_text_field( (string) ( $page['order_items'] ?? '' ) ), 0, 200 ),
+			'category'   => mb_substr( sanitize_text_field( (string) ( $page['category'] ?? '' ) ), 0, 80 ),
 		);
 	}
 
@@ -145,7 +147,20 @@ class AISR_REST {
 			);
 		}
 
-		$result = AISR_Claude::chat( $conv, $message, $page, (int) $conv['user_turns'] === 0 ? $opener : '' );
+		// A photo from the shopper (resized in the browser): jpeg/png/webp data URL, at most ~1.5 MB.
+		$image = null;
+		$raw   = (string) $req->get_param( 'image' );
+		if ( '' !== $raw ) {
+			if ( self::rate_limited( 'image', 8, HOUR_IN_SECONDS ) ) {
+				return new WP_Error( 'aisr_rate', 'too many photos', array( 'status' => 429 ) );
+			}
+			if ( strlen( $raw ) > 2100000 || ! preg_match( '#^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$#', $raw, $m ) ) {
+				return new WP_Error( 'aisr_image', 'bad image', array( 'status' => 400 ) );
+			}
+			$image = array( 'type' => $m[1], 'data' => $m[2] );
+		}
+
+		$result = AISR_Claude::chat( $conv, $message, $page, (int) $conv['user_turns'] === 0 ? $opener : '', $image );
 		self::set_attribution_cookie( $conv['uuid'] );
 
 		return rest_ensure_response(

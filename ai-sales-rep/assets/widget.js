@@ -78,7 +78,7 @@
 
 	/* ---------- API ---------- */
 	function pageCtx() {
-		return { type: page.type, product_id: page.product_id, title: page.title, viewed: viewed.filter(function (id) { return id !== page.product_id; }) };
+		return { type: page.type, product_id: page.product_id, title: page.title, order_items: page.order_items || '', category: page.category || '', viewed: viewed.filter(function (id) { return id !== page.product_id; }) };
 	}
 	function post(path, body) {
 		var h = { 'Content-Type': 'application/json' };
@@ -169,6 +169,24 @@
 	input.setAttribute('enterkeyhint', 'send');
 	var send = el('button', 'aisr-send'); send.type = 'submit'; send.setAttribute('aria-label', 'שליחה');
 	send.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3 10l12 2-12 2z"/></svg>';
+	// A photo of the shopper's table or kitchen: resized here, then the bot recommends matching pieces.
+	var attach = el('button', 'aisr-attach'); attach.type = 'button'; attach.setAttribute('aria-label', 'שליחת תמונה');
+	attach.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9zm3 5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"/></svg>';
+	var fileIn = el('input'); fileIn.type = 'file'; fileIn.accept = 'image/*'; fileIn.hidden = true;
+	attach.addEventListener('click', function () { fileIn.click(); });
+	fileIn.addEventListener('change', function () {
+		var f = fileIn.files && fileIn.files[0]; fileIn.value = '';
+		if (!f || busy) return;
+		var img = new Image(), url = URL.createObjectURL(f);
+		img.onload = function () {
+			var max = 1024, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+			var cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+			cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+			sendMessage(input.value.trim() || 'מה יתאים לזה?', cv.toDataURL('image/jpeg', 0.8));
+		};
+		img.src = url;
+	});
+	form.appendChild(attach); form.appendChild(fileIn);
 	form.appendChild(input); form.appendChild(send);
 	var foot = el('div', 'aisr-foot');
 	if (C.privacyUrl) { var pl = el('a', null, 'פרטיות'); pl.href = C.privacyUrl; pl.target = '_blank'; pl.rel = 'noopener'; foot.appendChild(pl); }
@@ -235,6 +253,23 @@
 	}
 	function action(a) {
 		var wrap = el('div', 'aisr-action');
+		if (a.type === 'bundle') {
+			var box = el('div', 'aisr-bundle');
+			box.appendChild(el('div', 'aisr-bundle-title', a.title));
+			(a.items || []).forEach(function (p) { box.appendChild(card(p)); });
+			var all = el('button', 'aisr-btn', 'הוספת כל הסט לסל · ' + a.total); all.type = 'button';
+			all.addEventListener('click', function () {
+				all.disabled = true; all.textContent = 'מוסיף…';
+				var chain = Promise.resolve();
+				(a.items || []).forEach(function (p) { chain = chain.then(function () { return storeApi('/cart/add-item', { id: p.id, quantity: 1 }); }); });
+				chain.then(function () {
+					all.textContent = 'הסט נוסף לסל ✓'; refreshMiniCart(); track('add_to_cart', { trigger: 'bundle' }); set(SS, 'added', true);
+				}).catch(function () { all.disabled = false; all.textContent = 'לא הצלחנו להוסיף. נסו שוב'; });
+			});
+			box.appendChild(all);
+			wrap.appendChild(box);
+			return wrap;
+		}
 		if (a.type === 'whatsapp') {
 			var w = el('a', 'aisr-btn', a.label || 'המשך בוואטסאפ'); w.href = a.url; w.target = '_blank'; w.rel = 'noopener';
 			w.addEventListener('click', function () { track('clicked', { trigger: 'whatsapp' }); });
@@ -263,7 +298,7 @@
 	/* ---------- chat ---------- */
 	var busy = false;
 	function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-	function sendMessage(text) {
+	function sendMessage(text, image) {
 		text = String(text || '').trim();
 		if (!text || busy) return;
 		busy = true; setChips([]); input.value = '';
@@ -273,8 +308,10 @@
 			if (first) { history.push({ r: 'bot', t: first.textContent }); }
 		}
 		bubble('user', text);
+		if (image) { var th = el('img', 'aisr-photo'); th.src = image; th.alt = ''; log.appendChild(th); }
 		var t = typing();
 		var body = { message: text, conversation_id: convId, visitor: visitor, grp: grp, page: pageCtx() };
+		if (image) body.image = image;
 		if (pendingOpener) { body.opener = pendingOpener.text; body.trigger = pendingOpener.trigger; }
 		post('/chat', body).then(function (res) {
 			convId = res.conversation_id || convId; set(SS, 'conv', convId);
@@ -564,6 +601,9 @@
 		}).observe(document.body, { childList: true, subtree: true });
 	}
 	if (document.querySelector('.woocommerce-error, .wc-block-components-notice-banner.is-error') && page.type !== 'checkout') setTimeout(function () { fire('add_error', true); }, 1500);
+
+	// Right after an order: thanks, delivery questions, one idea that completes it.
+	if (page.type === 'thankyou') setTimeout(function () { fire('thankyou', true); }, 4000);
 
 	// A site search that found nothing.
 	if (page.type === 'search' && page.search_empty) setTimeout(function () { fire('search_empty', true); }, 2500);

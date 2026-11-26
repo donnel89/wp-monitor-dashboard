@@ -15,7 +15,17 @@ class AISR_Frontend {
 	public static function page_info(): array {
 		$type = 'other';
 		$pid  = 0;
-		if ( function_exists( 'is_checkout' ) && is_checkout() ) {
+		$order_items = '';
+		$category    = '';
+		if ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) {
+			$type = 'thankyou';
+			$oid  = absint( get_query_var( 'order-received' ) );
+			$o    = $oid ? wc_get_order( $oid ) : null;
+			// Only with the order key from the URL, so the page never reveals someone else's order.
+			if ( $o && isset( $_GET['key'] ) && hash_equals( $o->get_order_key(), sanitize_text_field( wp_unslash( $_GET['key'] ) ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+				$order_items = implode( ', ', array_map( static fn( $i ) => $i->get_name(), array_values( $o->get_items() ) ) );
+			}
+		} elseif ( function_exists( 'is_checkout' ) && is_checkout() ) {
 			$type = 'checkout';
 		} elseif ( function_exists( 'is_cart' ) && is_cart() ) {
 			$type = 'cart';
@@ -24,6 +34,8 @@ class AISR_Frontend {
 			$pid  = (int) get_queried_object_id();
 		} elseif ( function_exists( 'is_product_taxonomy' ) && ( is_product_taxonomy() || is_shop() ) ) {
 			$type = 'category';
+			$term = get_queried_object();
+			$category = $term instanceof WP_Term ? $term->name : '';
 		} elseif ( function_exists( 'is_account_page' ) && is_account_page() ) {
 			$type = 'account';
 		} elseif ( is_search() ) {
@@ -45,6 +57,8 @@ class AISR_Frontend {
 			'query'      => 'search' === $type ? mb_substr( get_search_query(), 0, 60 ) : '',
 			'search_empty' => 'search' === $type && ! have_posts(),
 			'cart_made'  => in_array( $type, array( 'cart', 'checkout' ), true ) ? self::cart_made_to_order() : '',
+			'order_items' => mb_substr( $order_items, 0, 200 ),
+			'category'   => $category,
 		);
 	}
 
@@ -117,6 +131,7 @@ class AISR_Frontend {
 			'idle'               => array( 'צריכים עזרה למצוא משהו?', array( 'כן', 'מה הכי נמכר?', 'רק מסתכלים' ) ),
 			'returning'          => array( 'ברוכים השבים 🙂 ראיתי שבדקתם את {prev} בפעם הקודמת. רוצים לחזור אליו?', array( 'כן, תראו לי', 'מחפשים משהו אחר' ) ),
 			'category'           => array( 'יש פה הרבה אפשרויות. לעזור לצמצם לפי תקציב או לפי שימוש?', array( 'לפי תקציב', 'לפי שימוש', 'מה הכי נמכר?' ) ),
+			'thankyou'           => array( 'תודה על ההזמנה 🙂 נשארה שאלה, או רוצים רעיון למשהו שמשלים אותה?', array( 'מתי זה יגיע?', 'מה משלים את מה שקניתי?', 'לא תודה' ) ),
 			'home'               => array( 'היי 🙂 מחפשים משהו מסוים, או רק מסתכלים?', array( 'מחפשים משהו מסוים', 'מה המבצעים?', 'רק מסתכלים' ) ),
 			'blog'               => array( 'מקווה שהמאמר עוזר 🙂 רוצים המלצה על מוצר שמתאים למה שכתוב כאן?', array( 'כן, תמליצו', 'לא תודה' ) ),
 		);
@@ -182,8 +197,30 @@ class AISR_Frontend {
 			'pickup_hint'   => self::has_pickup() ? 'יש גם איסוף עצמי בלי עלות. ' : '',
 		);
 		$emoji = 'friendly' === $s['persona_template'];
+		$cat_opener = null;
+		if ( 'category' === $page['type'] && ! empty( $page['category'] ) ) {
+			// "כוסות וספלים: למה זה מיועד (קפה, אספרסו, תה, מאצ'ה)? ..." -> one question with its options as buttons.
+			foreach ( preg_split( '/\r\n|\r|\n/', (string) $s['diagnostic_questions'] ) as $line ) {
+				$parts = explode( ':', $line, 2 );
+				$words = static fn( $t ) => array_filter( preg_split( '/[\s,\-–\/]+/u', mb_strtolower( (string) $t ) ), static fn( $w ) => mb_strlen( $w ) >= 3 && 'וגם' !== $w );
+				if ( count( $parts ) < 2 || ! array_intersect( $words( $parts[0] ), $words( $page['category'] ) ) ) { // One shared word is enough: 'כוסות קרמיקה' ~ 'כוסות וספלים'.
+					continue;
+				}
+				$q = trim( preg_split( '/\?/u', $parts[1] )[0] );
+				if ( preg_match( '/\(([^)]+)\)/u', $q, $m ) ) {
+					$opts       = array_slice( array_map( 'trim', explode( ',', $m[1] ) ), 0, 4 );
+					$q          = trim( preg_replace( '/\s*\([^)]*\)/u', '', $q ) );
+					$cat_opener = array( 'מחפשים ' . $page['category'] . '? 🙂 ' . $q . '? אציג 3 שמתאימים.', $opts );
+				}
+				break;
+			}
+		}
 		$out   = array();
-		foreach ( self::openers() as $key => $o ) {
+		$all = self::openers();
+		if ( $cat_opener ) {
+			$all['category'] = $cat_opener;
+		}
+		foreach ( $all as $key => $o ) {
 			$out[ $key ] = array(
 				'text'    => self::fill( $o[0], $vars, $emoji ),
 				'replies' => $o[1],
