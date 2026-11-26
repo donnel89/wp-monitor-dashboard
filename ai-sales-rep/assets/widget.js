@@ -446,7 +446,7 @@
 			&& (C.proactiveMode === 'all' || (!history.length && !get(SS, 'dismissed', false))) && (page.type !== 'checkout' || CHECKOUT_TRIGGERS.indexOf(trigger) !== -1);
 	}
 	function enabled(trigger) { return (C.triggers || []).indexOf(trigger) !== -1; }
-	function eligible() { return pages >= (C.minPages || 2) || (page.type === 'product' && (Date.now() - startedAt) / 1000 >= (C.productDwell || 20)); }
+	function eligible() { return pages >= (C.minPages || 1) || (page.type === 'product' && (Date.now() - startedAt) / 1000 >= (C.productDwell || 8)); }
 
 	function fire(trigger, strong, vars) {
 		// A made-to-order product changes what is worth saying: the lead time before a holiday, or an offer to be updated.
@@ -454,7 +454,7 @@
 		if (page.made_to_order && trigger === 'exit_scroll' && enabled('made_lead')) trigger = 'made_lead';
 		// On checkout, leaving or stalling becomes one gentle offer of help, and only after 40 seconds there.
 		if (page.type === 'checkout' && (trigger === 'exit_scroll' || trigger === 'tab_return' || trigger === 'idle')) {
-			if ((Date.now() - startedAt) / 1000 < 40) return;
+			if ((Date.now() - startedAt) / 1000 < 20) return;
 			trigger = 'checkout_help';
 		}
 		dbg('trigger: ' + trigger);
@@ -487,7 +487,7 @@
 			return;
 		}
 		var urgent = prio(trigger) >= 3; // The shopper is about to look elsewhere: answer almost at once.
-		setTimeout(function () { if (pendingOpener) showPeek(pendingOpener.text, pendingOpener.trigger, urgent); }, urgent ? 250 : 2000 + Math.random() * 2000);
+		setTimeout(function () { if (pendingOpener) showPeek(pendingOpener.text, pendingOpener.trigger, urgent); }, urgent ? 250 : 700 + Math.random() * 500);
 	}
 	function showPeek(text, trigger, urgent) {
 		if (!panel.hidden) return;
@@ -498,7 +498,7 @@
 			peekText.textContent = latest.text;
 			dot.hidden = false;
 			track('shown', { trigger: latest.trigger });
-		}, urgent ? 600 : 1200);
+		}, urgent ? 600 : 800);
 	}
 	function hidePeek(dismissed) {
 		if (peek.hidden) return;
@@ -514,7 +514,7 @@
 	['touchstart', 'scroll', 'keydown', 'mousemove'].forEach(function (ev) { window.addEventListener(ev, activity, { passive: true }); });
 
 	// Dwell on product / category / home / blog.
-	var dwellMap = { product: ['product_dwell', C.productDwell || 20], category: ['category', 20], home: ['home', 20], blog: ['blog', 40] };
+	var dwellMap = { product: ['product_dwell', C.productDwell || 8], category: ['category', 8], home: ['home', 8], blog: ['blog', 20] };
 	if (dwellMap[page.type]) {
 		setTimeout(function () { fire(dwellMap[page.type][0], page.type === 'product'); }, dwellMap[page.type][1] * 1000);
 	}
@@ -545,7 +545,7 @@
 	document.addEventListener('visibilitychange', function () {
 		if (document.hidden) { hiddenAt = Date.now(); return; }
 		var away = (Date.now() - hiddenAt) / 1000;
-		if (hiddenAt && away >= 8 && away <= 1800 && (page.type === 'product' || page.type === 'checkout')) fire('tab_return', true);
+		if (hiddenAt && away >= 4 && away <= 1800 && (page.type === 'product' || page.type === 'checkout')) fire('tab_return', true);
 	});
 
 	// Scroll: fast upward flick near the top (mobile exit intent) and back-and-forth re-reading.
@@ -557,7 +557,7 @@
 		var d = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
 		if (d && d !== dir && Math.abs(dy) > 30) { flips.push({ t: now, y: y }); dir = d; }
 		flips = flips.filter(function (f) { return now - f.t < 10000; });
-		if (flips.length >= 5 && page.type === 'product') {
+		if (flips.length >= 4 && page.type === 'product') {
 			var ys = flips.map(function (f) { return f.y; });
 			if (Math.max.apply(null, ys) - Math.min.apply(null, ys) < 900) fire('reread', false);
 		}
@@ -572,7 +572,7 @@
 	function galleryHit(n) {
 		if (page.type !== 'product') return;
 		galleryHits += n;
-		if (galleryHits >= 3) fire('gallery', true);
+		if (galleryHits >= 2) fire('gallery', true);
 	}
 	document.addEventListener('click', function (e) {
 		if (!e.target.closest || !e.target.closest(GALLERY)) return;
@@ -593,7 +593,7 @@
 	var switches = 0;
 	document.addEventListener('change', function (e) {
 		if (e.target.closest && e.target.closest('form.variations_form, .wc-block-add-to-cart-form')) {
-			if (++switches >= 3) fire('size_switch', true);
+			if (++switches >= 2) fire('size_switch', true);
 		}
 	}, true);
 
@@ -615,12 +615,12 @@
 	}
 	if (page.type === 'checkout') {
 		var shipCheck = function () { if (shippingCharged()) fire('shipping_cost', true); };
-		if (window.jQuery) window.jQuery(document.body).on('updated_checkout', function () { setTimeout(shipCheck, 800); });
-		setTimeout(shipCheck, 15000);
+		if (window.jQuery) window.jQuery(document.body).on('updated_checkout', function () { setTimeout(shipCheck, 500); });
+		setTimeout(shipCheck, 5000);
 		// Opened the coupon field and did not apply a coupon within 20 seconds.
 		document.addEventListener('click', function (e) {
 			if (!e.target.closest || !e.target.closest('.showcoupon, .wc-block-components-totals-coupon-link, .wc-block-components-panel__button')) return;
-			setTimeout(function () { if (!document.querySelector('.cart-discount, .wc-block-components-totals-discount')) fire('checkout_help', true); }, 20000);
+			setTimeout(function () { if (!document.querySelector('.cart-discount, .wc-block-components-totals-discount')) fire('checkout_help', true); }, 10000);
 		}, true);
 	}
 
@@ -636,13 +636,13 @@
 			}); });
 		}).observe(document.body, { childList: true, subtree: true });
 	}
-	if (document.querySelector('.woocommerce-error, .wc-block-components-notice-banner.is-error') && page.type !== 'checkout') setTimeout(function () { fire('add_error', true); }, 1500);
+	if (document.querySelector('.woocommerce-error, .wc-block-components-notice-banner.is-error') && page.type !== 'checkout') setTimeout(function () { fire('add_error', true); }, 600);
 
 	// Right after an order: thanks, delivery questions, one idea that completes it.
-	if (page.type === 'thankyou') setTimeout(function () { fire('thankyou', true); }, 4000);
+	if (page.type === 'thankyou') setTimeout(function () { fire('thankyou', true); }, 2000);
 
 	// A site search that found nothing.
-	if (page.type === 'search' && page.search_empty) setTimeout(function () { fire('search_empty', true); }, 2500);
+	if (page.type === 'search' && page.search_empty) setTimeout(function () { fire('search_empty', true); }, 1000);
 
 	// Rage clicks: three fast clicks in the same spot usually mean something on the page does not work.
 	var clicks = [];
@@ -658,15 +658,15 @@
 	}, true);
 
 	// Several products viewed in this visit and nothing added yet.
-	if (page.type === 'product' && viewed.length >= 3 && !get(SS, 'added', false)) setTimeout(function () { fire('compare_many', true); }, 6000);
+	if (page.type === 'product' && viewed.length >= 3 && !get(SS, 'added', false)) setTimeout(function () { fire('compare_many', true); }, 2500);
 	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', function () { set(SS, 'added', true); });
 
 	// A made-to-order item in the cart: say the lead time before paying, not after.
-	if ((page.type === 'cart' || page.type === 'checkout') && page.cart_made) setTimeout(function () { fire('cart_made', true); }, 5000);
+	if ((page.type === 'cart' || page.type === 'checkout') && page.cart_made) setTimeout(function () { fire('cart_made', true); }, 2000);
 
 	// Came back from a policy page (returns, shipping) to a product: something worries them.
 	if (page.type === 'policy') set(SS, 'policy_seen', true);
-	else if (page.type === 'product' && get(SS, 'policy_seen', false)) { set(SS, 'policy_seen', false); setTimeout(function () { fire('policy_return', true); }, 4000); }
+	else if (page.type === 'product' && get(SS, 'policy_seen', false)) { set(SS, 'policy_seen', false); setTimeout(function () { fire('policy_return', true); }, 1500); }
 
 	// First page of a visit, and a cart from an earlier visit is still there.
 	if (pages === 1 && page.type !== 'cart' && page.type !== 'checkout') {
@@ -674,7 +674,7 @@
 			fetch(C.storeApi + '/cart', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (cart) {
 				if (cart && cart.items && cart.items.length) fire('cart_waiting', true, { item: cart.items[0].name });
 			}).catch(function () { /* ignore */ });
-		}, 5000);
+		}, 2000);
 	}
 
 	// Scrolled to the bottom of a product page without doing anything.
@@ -695,10 +695,10 @@
 			if (sub > 0 && gap > 0 && gap <= C.freeShipGap) fire('freeship_gap', true, { gap: gap });
 		}).catch(function () { /* ignore */ });
 	}
-	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', function () { setTimeout(checkFreeShip, 3000); });
-	if (page.type === 'cart') setTimeout(checkFreeShip, 6000);
+	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', function () { setTimeout(checkFreeShip, 1500); });
+	if (page.type === 'cart') setTimeout(checkFreeShip, 2500);
 
-	function cartIdle() { setTimeout(function () { if (Date.now() - lastActivity > 15000 || page.type === 'cart') fire('cart_idle', true); }, 25000); }
+	function cartIdle() { setTimeout(function () { if (Date.now() - lastActivity > 6000 || page.type === 'cart') fire('cart_idle', true); }, 10000); }
 	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', cartIdle);
 	document.body.addEventListener('wc-blocks_added_to_cart', cartIdle);
 	if (page.type === 'cart') cartIdle();
@@ -707,20 +707,20 @@
 	var ua = navigator.userAgent || '', ref = document.referrer || '';
 	if (pages === 1) {
 		if (/Instagram|FBAN|FBAV|TikTok|musical_ly|BytedanceWebview/i.test(ua) || /instagram\.|facebook\.|tiktok\./i.test(ref)) {
-			setTimeout(function () { fire('social_visitor', true); }, 8000);
+			setTimeout(function () { fire('social_visitor', true); }, 3000);
 		} else if (/zap\.co\.il|wisebuy|google\.[^/]+\/shopping|shopping\.google/i.test(ref)) {
-			setTimeout(function () { fire('comparison_visitor', true); }, 8000);
+			setTimeout(function () { fire('comparison_visitor', true); }, 3000);
 		}
 	}
 
 	// Stuck: no scrolling or touching for a while.
 	setInterval(function () {
-		if ((Date.now() - lastActivity) / 1000 >= (C.idleSeconds || 25) && !document.hidden) fire('idle', false);
-	}, 5000);
+		if ((Date.now() - lastActivity) / 1000 >= (C.idleSeconds || 12) && !document.hidden) fire('idle', false);
+	}, 2000);
 
 	// Returning visitor (extended privacy mode with consent only).
 	if (LS && prevVisitProduct && pages === 1 && prevVisitProduct.id !== page.product_id && Date.now() - prevVisitProduct.t > 3600000) {
-		setTimeout(function () { fire('returning', true); }, 6000);
+		setTimeout(function () { fire('returning', true); }, 2500);
 	}
 
 	dot.hidden = true;

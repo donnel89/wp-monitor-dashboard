@@ -80,9 +80,9 @@ class AISR_Settings {
 			'hours_friday_end'     => '',
 			'work_days'            => array( 0, 1, 2, 3, 4 ),
 			// Triggers.
-			'min_pages'            => 2,
-			'product_dwell'        => 20,
-			'idle_seconds'         => 25,
+			'min_pages'            => 1,
+			'product_dwell'        => 8,
+			'idle_seconds'         => 12,
 			'enabled_triggers'     => array_keys( self::trigger_labels() ),
 			// Coupons.
 			'coupon_enabled'       => 0,
@@ -118,7 +118,7 @@ class AISR_Settings {
 			// Credit.
 			'show_credit'          => 1,
 			'proactive_mode'       => 'one',
-			'proactive_cooldown'   => 30,
+			'proactive_cooldown'   => 12,
 			'fresh_visits'         => 0,
 			'credit_text'          => '',
 			'credit_url'           => '',
