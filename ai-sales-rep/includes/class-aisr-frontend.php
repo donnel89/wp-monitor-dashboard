@@ -228,6 +228,11 @@ class AISR_Frontend {
 		if ( $cat_opener ) {
 			$all['category'] = $cat_opener;
 		}
+		// Where the home decides the choice, the first message already offers to match from a photo.
+		if ( 'category' === $page['type'] && preg_match( '/עיצוב|בית|עציץ|צמח|הגשה|שולחן|decor|home|plant/iu', (string) ( $page['category'] ?? '' ) ) ) {
+			$all['category'][1] = array_merge( array_slice( (array) $all['category'][1], 0, 3 ), array( '📷 לשלוח תמונה' ) );
+			$all['category'][0] = rtrim( $all['category'][0] ) . ' אפשר גם לשלוח לי תמונה של הפינה, ואמליץ מה יתאים.';
+		}
 		foreach ( $all as $key => $o ) {
 			$out[ $key ] = array(
 				'text'    => self::fill( $o[0], $vars, $emoji ),

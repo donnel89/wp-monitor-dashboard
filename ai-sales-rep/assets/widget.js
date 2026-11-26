@@ -222,7 +222,7 @@
 		chips.innerHTML = '';
 		(list || []).forEach(function (txt) {
 			var c = el('button', 'aisr-chip', txt); c.type = 'button';
-			c.addEventListener('click', function () { sendMessage(txt); });
+			c.addEventListener('click', function () { if (/^📷/.test(txt)) { fileIn.click(); return; } sendMessage(txt); }); // The photo chip opens the camera.
 			chips.appendChild(c);
 		});
 	}
