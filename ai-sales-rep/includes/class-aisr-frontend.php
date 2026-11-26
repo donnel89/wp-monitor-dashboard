@@ -75,7 +75,7 @@ class AISR_Frontend {
 		$s     = AISR_Settings::all();
 		$adv   = AISR_Settings::advantages();
 		$name  = '';
-		$hint  = 'אפשר לשאול אותי על התאמה, משלוח או אחריות.';
+		$hint  = $s['warranty_summary'] ? 'אפשר לשאול אותי על התאמה, משלוח או אחריות.' : 'אפשר לשאול אותי על התאמה, משלוח או מתנה.';
 		if ( $page['product_id'] ) {
 			$p = wc_get_product( $page['product_id'] );
 			if ( $p ) {
@@ -89,7 +89,8 @@ class AISR_Frontend {
 				}
 			}
 		}
-		$trust = $s['returns_summary'] ?: ( $adv[0] ?? '' );
+		// Only the headline of the returns policy ("החלפה או החזרה תוך 14 יום"), not its conditions.
+		$trust = $s['returns_summary'] ? trim( preg_split( '/[,.;]/u', $s['returns_summary'] )[0] ) : ( $adv[0] ?? '' );
 		$vars  = array(
 			'product'       => $name ?: 'המוצר',
 			'hint'          => $hint,

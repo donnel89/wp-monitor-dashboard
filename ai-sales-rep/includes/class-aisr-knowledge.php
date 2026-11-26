@@ -188,15 +188,23 @@ class AISR_Knowledge {
 		return implode( ', ', $items ) . ' | subtotal ' . wc_format_decimal( WC()->cart->get_subtotal(), 2 );
 	}
 
+	/** Price as the shopper sees it, without the screen-reader text WooCommerce adds to sale prices. */
+	public static function plain_price( WC_Product $p ): string {
+		$html = preg_replace( '#<span[^>]*class="[^"]*screen-reader-text[^"]*"[^>]*>.*?</span>#s', '', (string) $p->get_price_html() );
+		$html = preg_replace( '#<del[^>]*>(.*?)</del>\s*<ins[^>]*>(.*?)</ins>#s', '$2 (במקום $1)', (string) $html );
+		return trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( (string) $html ) ) ) );
+	}
+
 	public static function product_card( WC_Product $p ): array {
 		$img = wp_get_attachment_image_url( $p->get_image_id(), 'woocommerce_thumbnail' );
 		return array(
 			'id'          => $p->get_id(),
 			'name'        => $p->get_name(),
-			'price'       => html_entity_decode( wp_strip_all_tags( $p->get_price_html() ) ),
+			'price'       => self::plain_price( $p ),
 			'image'       => $img ?: wc_placeholder_img_src(),
 			'url'         => get_permalink( $p->get_id() ),
 			'in_stock'    => $p->is_in_stock(),
+			'made_to_order' => 'onbackorder' === $p->get_stock_status(),
 			'simple'      => $p->is_type( 'simple' ) && $p->is_purchasable(),
 			'rating'      => (float) $p->get_average_rating(),
 		);
@@ -215,6 +223,7 @@ class AISR_Knowledge {
 			'regular_price' => $p->get_regular_price(),
 			'on_sale'       => $p->is_on_sale(),
 			'in_stock'      => $p->is_in_stock(),
+			'made_to_order' => 'onbackorder' === $p->get_stock_status(),
 			'stock_qty'     => $p->get_stock_quantity(),
 			'type'          => $p->get_type(),
 			'categories'    => wp_list_pluck( get_the_terms( $p->get_id(), 'product_cat' ) ?: array(), 'name' ),
@@ -247,6 +256,7 @@ class AISR_Knowledge {
 						'attributes'   => $v['attributes'],
 						'price'        => $v['display_price'],
 						'in_stock'     => (bool) $v['is_in_stock'],
+						'made_to_order' => 'onbackorder' === ( wc_get_product( $v['variation_id'] ) ?: $p )->get_stock_status(),
 					);
 				}
 				$d['variations'] = $vars;
@@ -297,7 +307,8 @@ class AISR_Knowledge {
 			}
 		}
 		if ( ! empty( $args['in_stock_only'] ) || ! isset( $args['in_stock_only'] ) ) {
-			$query['stock_status'] = 'instock';
+			// Purchasable now: in stock, or made to order (backorders allowed).
+			$query['stock_status'] = array( 'instock', 'onbackorder' );
 		}
 		$products = wc_get_products( $query );
 

@@ -189,7 +189,7 @@
 		var name = el('a', 'aisr-card-name', p.name); name.href = p.url;
 		name.addEventListener('click', function () { track('clicked', { trigger: 'card' }); });
 		body.appendChild(name);
-		body.appendChild(el('div', 'aisr-card-price', p.price));
+		body.appendChild(el('div', 'aisr-card-price', p.made_to_order ? p.price + ' · בהזמנה מראש' : p.price));
 		var btn = el('button', 'aisr-card-btn'); btn.type = 'button';
 		if (p.simple && p.in_stock) {
 			btn.textContent = 'הוספה לסל';

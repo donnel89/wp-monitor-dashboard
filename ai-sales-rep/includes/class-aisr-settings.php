@@ -104,6 +104,24 @@ class AISR_Settings {
 		return $all[ $key ] ?? null;
 	}
 
+	/**
+	 * A safe view of a key for the settings page: the prefix, the last 4 characters and the length.
+	 * Never enough to use the key, enough to spot a password autofilled by the browser or a truncated paste.
+	 */
+	public static function key_fingerprint( string $key ): string {
+		$len    = strlen( $key );
+		$prefix = preg_match( '/^(sk-ant-[a-z]+\d*)-/', $key, $m ) ? $m[1] : '';
+		$out    = $prefix ? $prefix . '…' . ( $len > 24 ? substr( $key, -4 ) : '' ) . ' (' . $len . ' תווים)' : '••• (' . $len . ' תווים)';
+		if ( ! str_starts_with( $key, 'sk-ant-' ) ) {
+			$out .= ' · לא נראה כמו מפתח של Anthropic';
+		} elseif ( str_starts_with( $key, 'sk-ant-oat' ) ) {
+			$out .= ' · זה טוקן של מנוי Claude, לא מפתח API';
+		} elseif ( $len < 90 ) {
+			$out .= ' · קצר מדי, אולי הודבק חלקית';
+		}
+		return $out;
+	}
+
 	/** The API key: a wp-config constant wins over the stored option. */
 	public static function api_key(): string {
 		if ( defined( 'AISR_ANTHROPIC_API_KEY' ) && AISR_ANTHROPIC_API_KEY ) {
@@ -339,6 +357,7 @@ class AISR_Settings {
 		}
 		$days     = array( 'ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת' );
 		$key_note = defined( 'AISR_ANTHROPIC_API_KEY' ) ? 'המפתח מוגדר בקובץ wp-config.php.' : ( $s['api_key'] ? 'מפתח שמור. השאירו ריק כדי לא לשנות.' : 'עדיין לא הוגדר מפתח.' );
+		$key_print = self::api_key() ? self::key_fingerprint( self::api_key() ) : '';
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>נציג מכירות AI · הגדרות</h1>
@@ -381,8 +400,8 @@ class AISR_Settings {
 					);
 					?>
 					<tr><th scope="row"><label for="aisr_api_key">מפתח Claude API</label></th><td>
-						<input type="password" autocomplete="off" class="regular-text" id="aisr_api_key" name="aisr[api_key]" value="">
-						<p class="description"><?php echo esc_html( $key_note ); ?> אפשר גם להגדיר <code>AISR_ANTHROPIC_API_KEY</code> ב-wp-config.php.</p>
+						<input type="password" autocomplete="new-password" data-lpignore="true" data-1p-ignore class="regular-text" id="aisr_api_key" name="aisr[api_key]" value="">
+						<p class="description"><?php echo esc_html( $key_note ); ?><?php if ( $key_print ) : ?> <code dir="ltr"><?php echo esc_html( $key_print ); ?></code><?php endif; ?> אפשר גם להגדיר <code>AISR_ANTHROPIC_API_KEY</code> ב-wp-config.php.</p>
 						<?php if ( $s['api_key'] ) : ?><label><input type="checkbox" name="aisr[api_key_clear]" value="1"> מחיקת המפתח השמור</label><?php endif; ?>
 					</td></tr>
 				</table>

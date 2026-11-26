@@ -34,7 +34,7 @@ class AISR_Tools {
 		return array(
 			array(
 				'name'        => 'search_products',
-				'description' => 'Search the store catalog. Use before recommending anything. Returns only published products; in-stock only unless in_stock_only is false.',
+				'description' => 'Search the store catalog. Use before recommending anything. Returns only published products; purchasable only (in stock or made to order) unless in_stock_only is false. made_to_order=true means the item is produced after ordering and takes longer to arrive.',
 				'inputSchema' => array(
 					'type'       => 'object',
 					'properties' => array(
@@ -123,7 +123,7 @@ class AISR_Tools {
 				'inputSchema' => array(
 					'type'       => 'object',
 					'properties' => array(
-						'summary' => array( 'type' => 'string', 'description' => 'One or two sentences for the store team: what the visitor wants, which product' ),
+						'summary' => array( 'type' => 'string', 'description' => 'The WhatsApp message the shopper will send, written in their language and in first person as the shopper (e.g. "היי, אני מתעניינת בספל שם אישי עם ידית למתנה ליום הולדת..."): what they want, which product. One or two sentences.' ),
 					),
 					'required'   => array( 'summary' ),
 				),
@@ -332,7 +332,7 @@ class AISR_Tools {
 				'channel'    => 'whatsapp',
 				'open_now'   => $open,
 				'hours'      => $s['hours_start'] . '-' . $s['hours_end'],
-				'note'       => 'A WhatsApp button with the summary is shown. ' . ( $open ? '' : 'The team is offline now; say when they will reply.' ),
+				'note'       => 'Nothing was sent yet. A WhatsApp button with a ready message is shown; the shopper must tap it to send it. Do not say you forwarded or sent anything; tell them to tap the button. ' . ( $open ? '' : 'The team is offline now; say when they will reply.' ),
 			);
 		}
 

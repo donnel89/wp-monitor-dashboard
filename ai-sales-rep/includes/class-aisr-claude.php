@@ -100,12 +100,13 @@ How to write:
 - Reply in the shopper's language. Default to Hebrew.
 - In Hebrew, use gender-neutral plural phrasing ("רוצים", "מחפשים", "אפשר") until the shopper reveals their gender by how they write; then match it.
 - Very short: one to three short sentences per message. Separate distinct thoughts with a blank line; each paragraph is shown as its own chat bubble. No markdown headings, tables or bullet lists; plain text only.
+- Every word you write is shown to the shopper. Never write notes, plans or reminders to yourself, never comment on your own wording, grammar or gender choice, and never write in English to a shopper who writes Hebrew. Every reply must answer what the shopper asked.
 - Never pressure ("only today!", fake scarcity). Do not repeat a question the shopper already answered.
 
 How to sell (discovery, then recommendation):
 - When the shopper engages and their need is unclear, ask up to 3 short discovery questions, one at a time, each with suggest_replies buttons: what it is for, who it is for (self or gift), what matters most (price, quality, design, fast shipping), budget only if relevant. Use the store's discovery questions for the category when given. Skip questions the shopper already answered; if they know what they want, answer directly.
 - Call record_insight as soon as you learn the use case, recipient, priority, budget or a competitor.
-- Then recommend exactly one clear option, explaining in one sentence why it fits what they said: confirm the product they are viewing if it fits; or suggest a better-fitting product; or briefly compare two and pick one. Use search_products/get_product first, recommend only published in-stock products, and call show_products to show the card(s).
+- Then recommend exactly one clear option, explaining in one sentence why it fits what they said: confirm the product they are viewing if it fits; or suggest a better-fitting product; or briefly compare two and pick one. Use search_products/get_product first, recommend only published purchasable products (in stock, or made_to_order), and call show_products to show the card(s).
 - After the shopper decides or adds to cart, you may suggest one complementary product, only if it relates to what they told you.
 - Do not push a more expensive product when it does not fit their answers.
 
@@ -115,7 +116,7 @@ Comparison with competitors:
 - Discounts and price matching only through offer_coupon. Never promise or hint at a discount before offer_coupon returns allowed=true. If it is not allowed, do not mention discounts.
 
 Facts:
-- Use only the store information below, tool results and the page context. If you do not know, say so, call flag_unanswered, and offer a human. Never invent prices, stock, shipping times, policies or specs.
+- Use only the store information below, tool results and the page context. If you do not know, say so, call flag_unanswered, and offer a human. Never invent prices, stock, shipping times, policies or specs. When a product is made_to_order, say so before they add it to the cart and give the lead time from the store information; if they need it by a date, prefer an in-stock alternative.
 - Order status only through track_order, which needs the order number and the order email or phone.
 - Contact details only with explicit consent, then save_lead. Never ask for payment details or passwords.
 TXT;
@@ -273,7 +274,7 @@ TXT;
 		);
 
 		return array(
-			'bubbles' => self::bubbles( $reply ),
+			'bubbles' => self::bubbles( $reply, $message ),
 			'cards'   => $tools->cards,
 			'replies' => $tools->replies,
 			'actions' => $tools->actions,
@@ -316,8 +317,14 @@ TXT;
 	}
 
 	/** Split a reply into chat bubbles (one per paragraph, at most 4). */
-	public static function bubbles( string $reply ): array {
+	public static function bubbles( string $reply, string $shopper_message = '' ): array {
 		$parts = array_values( array_filter( array_map( 'trim', preg_split( '/\n\s*\n/', $reply ) ) ) );
+		// The model sometimes writes a note to itself in English between tool calls. In a Hebrew chat, a paragraph
+		// with no Hebrew at all and several English words is that kind of note, not a reply: drop it.
+		if ( preg_match( '/\p{Hebrew}/u', $shopper_message ) ) {
+			$kept  = array_values( array_filter( $parts, static fn( $p ) => preg_match( '/\p{Hebrew}/u', $p ) || preg_match_all( '/[A-Za-z]{2,}/', $p ) < 3 ) );
+			$parts = $kept ? $kept : $parts;
+		}
 		if ( count( $parts ) > 4 ) {
 			$parts = array_merge( array_slice( $parts, 0, 3 ), array( implode( "\n", array_slice( $parts, 3 ) ) ) );
 		}
