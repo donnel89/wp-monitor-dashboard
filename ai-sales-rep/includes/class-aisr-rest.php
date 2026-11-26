@@ -48,6 +48,9 @@ class AISR_REST {
 	}
 
 	private static function rate_limited( string $bucket, int $max, int $window ): bool {
+		if ( current_user_can( 'manage_woocommerce' ) ) {
+			return false; // Shop managers testing the bot are not limited.
+		}
 		$ip  = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 		$key = 'aisr_rl_' . $bucket . '_' . md5( $ip . wp_salt( 'nonce' ) );
 		$n   = (int) get_transient( $key );

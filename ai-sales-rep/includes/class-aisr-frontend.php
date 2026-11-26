@@ -271,7 +271,7 @@ class AISR_Frontend {
 				'storeApi'      => esc_url_raw( rest_url( 'wc/store/v1' ) ),
 				'storeNonce'    => wp_create_nonce( 'wc_store_api' ),
 				// Test mode only (logged-in, uncached pages): lets REST see the logged-in manager.
-				'restNonce'     => 'all' === $s['visibility'] ? '' : wp_create_nonce( 'wp_rest' ),
+				'restNonce'     => 'all' === $s['visibility'] && ! current_user_can( 'manage_woocommerce' ) ? '' : wp_create_nonce( 'wp_rest' ), // Managers' pages are not cached.
 				'page'          => $page,
 				'freeShipMin'   => (float) AISR_Knowledge::free_shipping_min(),
 				'freeShipGap'   => (int) $s['free_ship_gap'],
