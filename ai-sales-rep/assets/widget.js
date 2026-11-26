@@ -39,7 +39,8 @@
 	if (!visitor) { visitor = rid(); set(SS, 'visitor', visitor); set(LS, 'visitor', visitor); }
 
 	var grp = cookie('aisr_grp');
-	if (C.testMode) grp = 'test'; // Managers are never put in the control group.
+	// Managers, and anyone checking the bot with ?aisr_debug=1, are never put in the control group.
+	if (C.testMode || C.isManager || /[?&]aisr_debug=1/.test(location.search)) grp = 'test';
 	if (grp !== 'test' && grp !== 'control') {
 		grp = Math.random() * 100 < (C.controlPct || 0) ? 'control' : 'test';
 	}
