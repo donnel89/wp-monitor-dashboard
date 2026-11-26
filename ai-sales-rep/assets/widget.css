@@ -183,3 +183,11 @@
 /* While the chat is open it sits above site widgets placed in the same corner (e.g. an accessibility button
    with a very high z-index covered the send button on phones). Closed, those widgets are on top again. */
 .aisr-root.aisr-open { z-index: 2147483646; }
+
+.aisr-reviews { border: 1px solid #e6e1da; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 10px; background: #fff; }
+.aisr-review { display: flex; flex-direction: column; gap: 3px; }
+.aisr-review + .aisr-review { border-top: 1px solid #f0ece6; padding-top: 10px; }
+.aisr-stars { color: #e2a400; font-size: 14px; letter-spacing: 1px; line-height: 1; }
+.aisr-review-text { color: var(--aisr-ink); font-size: 14px; line-height: 1.45; }
+.aisr-review-who { color: #8a8580; font-size: 12px; }
+.aisr-root .aisr-google { display: block; font-size: 13px; font-weight: 700; color: var(--aisr-ink); text-decoration: none; background: #f7f4f0; border-radius: 10px; padding: 7px 10px; text-align: center; }

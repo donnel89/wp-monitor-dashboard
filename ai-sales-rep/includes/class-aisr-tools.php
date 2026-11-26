@@ -12,6 +12,7 @@ class AISR_Tools {
 	public array $cards   = array();
 	public array $replies = array();
 	public array $actions = array();
+	private bool $reviews_shown = false;
 
 	private array $conv;
 	private array $page;
@@ -66,6 +67,14 @@ class AISR_Tools {
 						'product_ids' => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ), 'minItems' => 2, 'maxItems' => 4 ),
 					),
 					'required'   => array( 'title', 'product_ids' ),
+				),
+			),
+			array(
+				'name'        => 'show_reviews',
+				'description' => 'Show a card with 1-2 real customer reviews from this store (quoted word for word, first name only) and the store rating on Google. Use it once per conversation when the shopper hesitates, asks about quality or whether the studio can be trusted, compares with another shop, says it is expensive, or the conversation opened because they copied the product name or were about to leave. Pass the product they are looking at; reviews of similar products are used when it has none. Do not quote or paraphrase reviews in your own text: the card shows them.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array( 'product_id' => array( 'type' => 'integer' ) ),
 				),
 			),
 			array(
@@ -215,6 +224,7 @@ class AISR_Tools {
 				'get_product'     => AISR_Knowledge::product_details( (int) ( $input['product_id'] ?? 0 ), true ) ?? array( 'error' => 'not_found' ),
 				'show_products'   => $this->show_products( $input ),
 				'show_bundle'     => $this->show_bundle( $input ),
+				'show_reviews'    => $this->show_reviews( $input ),
 				'set_gift_message' => array( 'saved' => AISR_Growth::set_gift_message( (string) ( $input['message'] ?? '' ) ), 'note' => 'It will be added to the order as a note for the studio.' ),
 				'join_waitlist'   => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::join_waitlist( (int) ( $input['product_id'] ?? 0 ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ) ) ),
 				'remind_me'       => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::add_reminder( (string) ( $input['date'] ?? '' ), (string) ( $input['occasion'] ?? '' ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ), (string) ( $input['email'] ?? '' ), (array) ( $input['product_ids'] ?? array() ) ) ),
@@ -269,6 +279,72 @@ class AISR_Tools {
 		);
 		$choose = array_column( array_filter( $items, static fn( $c ) => empty( $c['simple'] ) ), 'name' );
 		return array( 'shown' => array_column( $items, 'id' ), 'total' => $total, 'needs_choice_on_product_page' => $choose );
+	}
+
+	/** Real reviews from the store (same product, then same category, then any), plus the Google rating. */
+	private function show_reviews( array $in ): array {
+		if ( $this->reviews_shown ) {
+			return array( 'error' => 'already_shown' );
+		}
+		$pid   = absint( $in['product_id'] ?? 0 );
+		$p     = $pid ? wc_get_product( $pid ) : null;
+		$pools = array();
+		if ( $p ) {
+			$pools[] = array( 'post_id' => $p->get_parent_id() ?: $pid );
+			$cats    = $p->get_category_ids();
+			if ( $cats ) {
+				$ids = wc_get_products( array( 'status' => 'publish', 'limit' => 60, 'return' => 'ids', 'category' => array_map( static fn( $c ) => get_term( $c )->slug ?? '', $cats ) ) );
+				if ( $ids ) {
+					$pools[] = array( 'post__in' => $ids );
+				}
+			}
+		}
+		$pools[] = array( 'post_type' => 'product' );
+		$picked  = array();
+		foreach ( $pools as $q ) {
+			$found = get_comments( $q + array( 'status' => 'approve', 'type' => 'review', 'number' => 40 ) );
+			foreach ( $found as $c ) {
+				$rating = (int) get_comment_meta( $c->comment_ID, 'rating', true );
+				$text   = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( html_entity_decode( $c->comment_content, ENT_QUOTES, 'UTF-8' ) ) ) );
+				$len    = mb_strlen( $text );
+				if ( $rating < 5 || $len < 25 || isset( $picked[ $c->comment_ID ] ) ) {
+					continue;
+				}
+				if ( $len > 220 ) {
+					$cut  = mb_substr( $text, 0, 220 );
+					$stop = max( mb_strrpos( $cut, '.' ) ?: 0, mb_strrpos( $cut, '!' ) ?: 0 );
+					$text = ( $stop > 60 ? mb_substr( $cut, 0, $stop + 1 ) : mb_substr( $cut, 0, mb_strrpos( $cut, ' ' ) ?: 220 ) ) . '…';
+				}
+				$first                     = preg_split( '/\s+/u', trim( (string) $c->comment_author ) )[0] ?? '';
+				$picked[ $c->comment_ID ] = array(
+					'name'    => sanitize_text_field( $first ),
+					'rating'  => $rating,
+					'text'    => $text,
+					'product' => html_entity_decode( get_the_title( (int) $c->comment_post_ID ), ENT_QUOTES, 'UTF-8' ),
+					'score'   => abs( $len - 110 ),
+				);
+			}
+			if ( count( $picked ) >= 2 ) {
+				break;
+			}
+		}
+		uasort( $picked, static fn( $a, $b ) => $a['score'] <=> $b['score'] );
+		$items  = array_map( static function ( $r ) {
+			unset( $r['score'] );
+			return $r;
+		}, array_slice( array_values( $picked ), 0, 2 ) );
+		$g_rate = (string) AISR_Settings::get( 'google_rating' );
+		$google = '' !== trim( $g_rate ) ? array(
+			'rating' => sanitize_text_field( $g_rate ),
+			'count'  => sanitize_text_field( (string) AISR_Settings::get( 'google_count' ) ),
+			'url'    => esc_url_raw( (string) AISR_Settings::get( 'google_url' ) ),
+		) : null;
+		if ( ! $items && ! $google ) {
+			return array( 'error' => 'no_reviews' );
+		}
+		$this->reviews_shown = true;
+		$this->actions[]     = array( 'type' => 'reviews', 'items' => $items, 'google' => $google );
+		return array( 'shown' => count( $items ), 'google' => (bool) $google, 'note' => 'The card is shown right after your first paragraph. Make the first paragraph a short lead-in (e.g. "הנה מה שלקוחות כתבו:"). Do not quote the reviews or say the card is above.' );
 	}
 
 	private function suggest_replies( array $in ): array {

@@ -272,6 +272,25 @@
 			wrap.appendChild(box);
 			return wrap;
 		}
+		if (a.type === 'reviews') {
+			var rv = el('div', 'aisr-reviews');
+			(a.items || []).forEach(function (r) {
+				var q = el('div', 'aisr-review');
+				var st = el('div', 'aisr-stars', '★★★★★'.slice(0, Math.max(1, Math.min(5, r.rating || 5))));
+				st.setAttribute('aria-label', (r.rating || 5) + ' מתוך 5 כוכבים');
+				q.appendChild(st);
+				q.appendChild(el('div', 'aisr-review-text', '"' + r.text + '"'));
+				q.appendChild(el('div', 'aisr-review-who', (r.name ? r.name + ' · ' : '') + 'על ' + r.product));
+				rv.appendChild(q);
+			});
+			if (a.google) {
+				var gl = el(a.google.url ? 'a' : 'div', 'aisr-google', '★ ' + a.google.rating + ' בגוגל' + (a.google.count ? ' · ' + a.google.count + ' ביקורות' : '') + (a.google.url ? ' ←' : ''));
+				if (a.google.url) { gl.href = a.google.url; gl.target = '_blank'; gl.rel = 'noopener'; gl.addEventListener('click', function () { track('clicked', { trigger: 'google_reviews' }); }); }
+				rv.appendChild(gl);
+			}
+			wrap.appendChild(rv);
+			return wrap;
+		}
 		if (a.type === 'whatsapp') {
 			var w = el('a', 'aisr-btn', a.label || 'המשך בוואטסאפ'); w.href = a.url; w.target = '_blank'; w.rel = 'noopener';
 			w.addEventListener('click', function () { track('clicked', { trigger: 'whatsapp' }); });
@@ -322,12 +341,17 @@
 			(res.bubbles || []).forEach(function (txt, i) {
 				seq = seq.then(function () {
 					if (i > 0) { log.appendChild(t); scrollDown(); return wait(Math.min(1600, 450 + txt.length * 12)); }
-				}).then(function () { if (t.parentNode) t.remove(); bubble('bot', txt); });
+				}).then(function () {
+					if (t.parentNode) t.remove(); bubble('bot', txt);
+					// Reviews come right after the lead-in sentence, before the rest of the reply.
+					if (i === 0) { (res.actions || []).forEach(function (a) { if (a.type === 'reviews') { log.appendChild(action(a)); scrollDown(); } }); }
+				});
 			});
 			return seq.then(function () {
 				if (t.parentNode) t.remove();
+				if (!(res.bubbles || []).length) { (res.actions || []).forEach(function (a) { if (a.type === 'reviews') log.appendChild(action(a)); }); }
 				(res.cards || []).forEach(function (p) { log.appendChild(card(p)); });
-				(res.actions || []).forEach(function (a) { log.appendChild(action(a)); });
+				(res.actions || []).forEach(function (a) { if (a.type !== 'reviews') log.appendChild(action(a)); });
 				setChips(res.replies);
 				scrollDown();
 			});

@@ -104,6 +104,9 @@ class AISR_Settings {
 			'holiday_name'         => '',
 			'holiday_date'         => '',
 			'brand_story'          => '',
+			'google_rating'        => '',
+			'google_count'         => '',
+			'google_url'           => '',
 			'occasions'            => '',
 			'opener_copy'          => '',
 			'reminder_channel'     => 'email',
@@ -251,7 +254,7 @@ class AISR_Settings {
 		$old = self::all();
 		$out = array();
 
-		$text = array( 'holiday_name', 'brand_story', 'opener_copy', 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
+		$text = array( 'holiday_name', 'brand_story', 'google_rating', 'google_count', 'google_url', 'opener_copy', 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
 		foreach ( $text as $k ) {
 			$out[ $k ] = sanitize_text_field( $in[ $k ] ?? '' );
 		}
@@ -471,6 +474,9 @@ class AISR_Settings {
 					self::field_text( 'shipping_summary', 'משלוחים בקצרה', 'לדוגמה: משלוח חינם מעל 300 ₪, 3–5 ימי עסקים' );
 					self::field_text( 'opener_copy', 'הודעה למי שמעתיק את שם המוצר', 'מי שמעתיק את השם הולך לחפש אותו במקום אחר. אפשר להשתמש ב-{product}. ריק = נוסח ברירת המחדל.' );
 					self::field_text( 'brand_story', 'הסיפור של המותג במשפט', 'נפתח איתו לגולשים שמגיעים מאינסטגרם, טיקטוק ופייסבוק.' );
+					self::field_text( 'google_rating', 'דירוג בגוגל', 'לדוגמה: 5.0. מוצג בכרטיס הביקורות. ריק = בלי פס גוגל.' );
+					self::field_text( 'google_count', 'מספר הביקורות בגוגל', 'לדוגמה: 132' );
+					self::field_text( 'google_url', 'קישור לביקורות בגוגל', 'הקישור לפרופיל העסק, כדי שהגולש יוכל לבדוק בעצמו.' );
 					self::field_text( 'free_ship_gap', 'הצעה להשלים למשלוח חינם (₪)', 'כשחסר בסל עד הסכום הזה, הבוט מציע מוצר קטן שמשלים. 0 = כבוי. הסף עצמו נקרא מהגדרות המשלוח בווקומרס.', 'number' );
 					self::field_text( 'ready_days', 'זמן אספקה למוצר במלאי (ימי עסקים)', '', 'number' );
 					self::field_text( 'made_days', 'זמן הכנה למוצר בהזמנה מראש (ימי עסקים)', '', 'number' );

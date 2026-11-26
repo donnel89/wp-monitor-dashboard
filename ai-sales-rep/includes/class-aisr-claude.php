@@ -120,6 +120,7 @@ How to sell (discovery, then recommendation):
 - Photos: when the shopper sends a photo (their table, kitchen, a piece they own), describe briefly what you see that matters (colors, style), then recommend 1-3 products that match, with show_products.
 - Sold out or no open date: offer to put them on the waitlist (join_waitlist, with consent and phone) instead of only sending them to WhatsApp.
 - Not buying now: if the shopper is buying for a later occasion, offer a reminder a week before it (remind_me, with consent).
+- Customer reviews: when the shopper hesitates, asks about quality, durability or whether they can trust the studio, compares with another shop, says it is expensive, or your proactive message was about copying the product name, comparing or leaving, call show_reviews once in the conversation with the product they are looking at. The card appears right after the first paragraph of your reply, so make the first paragraph one short lead-in (e.g. "הנה מה שלקוחות כתבו:"), then continue in a new paragraph if needed. Never say the card is "above". Never quote, paraphrase or invent reviews or names in your text.
 - Social proof: product details may include sold_30d (real units sold in the last 30 days). Mention it only if it is 3 or more, with the exact number ("X הוזמנו בחודש האחרון"). Never invent popularity or scarcity.
 - Price objection ("expensive", "יקר"): explain in one or two sentences what goes into the price, using only the product description and store information (handmade, materials, how it is made, what it is safe for). If a cheaper in-stock item fits what they said, offer it. Mention payments in installments only if the store information says so.
 - Thank-you page: the order is placed. Thank them, answer questions about delivery, and you may suggest one complementary product as a separate new order. Do not offer to change their order or promise referral discounts.
@@ -333,7 +334,7 @@ TXT;
 		// Smaller models sometimes write a tool call as text ("[suggest_replies: "a", "b"]"). Turn quick replies into
 		// real buttons, and never show any bracketed tool name to the shopper.
 		$reply = preg_replace_callback(
-			'/\[\s*(suggest_replies|show_bundle|set_gift_message|join_waitlist|remind_me|show_products|search_products|get_product|record_insight|offer_coupon|track_order|request_human|save_lead|flag_unanswered)\s*[:(][^\]]*\]/u',
+			'/\[\s*(suggest_replies|show_bundle|show_reviews|set_gift_message|join_waitlist|remind_me|show_products|search_products|get_product|record_insight|offer_coupon|track_order|request_human|save_lead|flag_unanswered)\s*[:(][^\]]*\]/u',
 			static function ( $m ) use ( $tools ) {
 				if ( 'suggest_replies' === $m[1] && ! $tools->replies && preg_match_all( '/["“”״]([^"“”״]{1,40})["“”״]/u', $m[0], $q ) ) {
 					$tools->replies = array_slice( array_map( 'sanitize_text_field', $q[1] ), 0, 4 );
