@@ -239,6 +239,14 @@ class AISR_Dashboard {
 				<?php submit_button( 'ליצור דוח עכשיו (בלי מייל)', 'secondary', 'aisr_report_btn', false ); ?>
 			</form>
 
+			<h2 id="aisr-limits">מגבלת הודעות</h2>
+			<p class="description">כל גולש מוגבל ל-40 הודעות בשעה ול-8 תמונות בשעה, נגד שימוש לרעה. מנהל מחובר לא מוגבל.<?php $aisr_rs = (int) get_option( 'aisr_rl_reset_at', 0 ); echo $aisr_rs ? ' ' . esc_html( 'אופס לאחרונה: ' . wp_date( 'd/m/Y H:i', $aisr_rs ) . '.' ) : ''; ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="aisr_reset_limits">
+				<?php wp_nonce_field( 'aisr_reset_limits' ); ?>
+				<?php submit_button( 'איפוס מגבלת ההודעות לכולם', 'secondary', 'aisr_reset_btn', false ); ?>
+			</form>
+
 			<h2 id="aisr-lists">מחכים למוצר ותזכורות</h2>
 			<p class="description">גולשים שביקשו בצ'אט עדכון כשמוצר חוזר, או תזכורת לפני אירוע. ההודעות מגיעות כמייל יומי עם קישורי וואטסאפ מוכנים.</p>
 			<table class="widefat striped" style="max-width:900px">

@@ -16,6 +16,7 @@ class AISR_Growth {
 		add_action( 'woocommerce_variation_set_stock_status', array( __CLASS__, 'variation_stock_changed' ), 10, 2 );
 		add_action( 'admin_post_aisr_weekly_report_now', array( __CLASS__, 'report_now' ) );
 		add_action( 'admin_post_aisr_growth_remove', array( __CLASS__, 'remove_entry' ) );
+		add_action( 'admin_post_aisr_reset_limits', array( __CLASS__, 'reset_limits' ) );
 	}
 
 	/* ---------- gift message ---------- */
@@ -262,6 +263,18 @@ class AISR_Growth {
 			}
 		}
 		wp_safe_redirect( admin_url( 'admin.php?page=aisr-dashboard' ) . '#aisr-lists' );
+		exit;
+	}
+
+	/** Dashboard: reset the per-visitor message limits for everyone (e.g. during a testing period). */
+	public static function reset_limits(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( 'forbidden' );
+		}
+		check_admin_referer( 'aisr_reset_limits' );
+		update_option( 'aisr_rl_epoch', (int) get_option( 'aisr_rl_epoch', 0 ) + 1, false );
+		update_option( 'aisr_rl_reset_at', time(), false );
+		wp_safe_redirect( admin_url( 'admin.php?page=aisr-dashboard' ) . '#aisr-limits' );
 		exit;
 	}
 

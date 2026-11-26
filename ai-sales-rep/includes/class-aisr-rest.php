@@ -52,7 +52,8 @@ class AISR_REST {
 			return false; // Shop managers testing the bot are not limited.
 		}
 		$ip  = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-		$key = 'aisr_rl_' . $bucket . '_' . md5( $ip . wp_salt( 'nonce' ) );
+		// The epoch lets the dashboard reset every counter at once (also when transients live in an object cache).
+		$key = 'aisr_rl_' . $bucket . '_' . md5( $ip . wp_salt( 'nonce' ) . '|' . (int) get_option( 'aisr_rl_epoch', 0 ) );
 		$n   = (int) get_transient( $key );
 		if ( $n >= $max ) {
 			return true;
