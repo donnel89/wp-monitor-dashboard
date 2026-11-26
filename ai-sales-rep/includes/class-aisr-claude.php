@@ -144,7 +144,7 @@ TXT;
 		$lines   = array( AISR_Knowledge::page_context( $page ) );
 		$lines[] = 'Local time: ' . current_datetime()->format( 'D Y-m-d H:i' ) . ' (store is ' . ( AISR_Settings::is_open_now() ? 'open' : 'closed' ) . ' now)';
 		if ( '' !== $opener ) {
-			$lines[] = 'This chat started with your proactive message to the shopper: "' . sanitize_text_field( $opener ) . '" (trigger: ' . $conv['trigger_key'] . ')';
+			$lines[] = 'Your latest proactive message to the shopper, which they are answering now: "' . sanitize_text_field( $opener ) . '"';
 		}
 		if ( 'off' === self::budget_state() ) {
 			$lines[] = 'Service note: keep answers minimal and offer a human for anything beyond a quick answer.';

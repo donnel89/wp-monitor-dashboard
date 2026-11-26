@@ -370,7 +370,10 @@
 	window.addEventListener('resize', scheduleLift);
 	setTimeout(liftAboveBars, 800);
 		renderHistory();
-		if (pendingOpener && !history.length) {
+		if (pendingOpener && history.length) {
+			bubble('bot', pendingOpener.text, true); // A new proactive message joins the existing conversation.
+			setChips(pendingOpener.replies);
+		} else if (pendingOpener && !history.length) {
 			bubble('bot', pendingOpener.text, false);
 			setChips(pendingOpener.replies);
 		} else if (!history.length) {
@@ -402,15 +405,20 @@
 	var CHECKOUT_TRIGGERS = ['checkout_help', 'shipping_cost', 'cart_made', 'rage_click'];
 	function proactiveAllowed(trigger) {
 		var on = page.type === 'checkout' ? (C.checkoutProactive && CHECKOUT_TRIGGERS.indexOf(trigger) !== -1) : C.proactive;
+		if (C.proactiveMode === 'all') {
+			// Every trigger may speak: once per page load each, with a pause between messages, never over an open chat.
+			return on && grp !== 'control' && panel.hidden && peek.hidden && !firedSet[trigger] && Date.now() - lastShownAt >= (C.proactiveCooldown || 0) * 1000;
+		}
 		return on && grp !== 'control' && !fired && !get(SS, 'proactive', false) && !get(SS, 'dismissed', false) && panel.hidden && !history.length;
 	}
+	var firedSet = {}, lastShownAt = 0;
 	var PRIORITY = { copy_name: 3, add_error: 3, shipping_cost: 3, checkout_help: 3, rage_click: 2, search_empty: 3,
 		cart_made: 2, holiday_made: 2, freeship_gap: 2, gallery: 2, tab_return: 2, exit_scroll: 2, made_lead: 2, compare_many: 2, policy_return: 2 };
 	var currentTrigger = '';
 	function prio(t) { return PRIORITY[t] || 1; }
 	function upgradeable(trigger) {
 		return currentTrigger && trigger !== currentTrigger && prio(trigger) > prio(currentTrigger) && pendingOpener && panel.hidden
-			&& !history.length && !get(SS, 'dismissed', false) && (page.type !== 'checkout' || CHECKOUT_TRIGGERS.indexOf(trigger) !== -1);
+			&& (C.proactiveMode === 'all' || (!history.length && !get(SS, 'dismissed', false))) && (page.type !== 'checkout' || CHECKOUT_TRIGGERS.indexOf(trigger) !== -1);
 	}
 	function enabled(trigger) { return (C.triggers || []).indexOf(trigger) !== -1; }
 	function eligible() { return pages >= (C.minPages || 2) || (page.type === 'product' && (Date.now() - startedAt) / 1000 >= (C.productDwell || 20)); }
@@ -430,7 +438,7 @@
 		// the shopper has not reacted to yet (e.g. copying the product name after a 'your cart is waiting').
 		if (upgradeable(trigger)) { dbg('  replaces the bubble of ' + currentTrigger); var u = C.openers && C.openers[trigger]; if (u) { var ut = u.text; for (var uv in vars || {}) ut = ut.split('{' + uv + '}').join(vars[uv]); currentTrigger = trigger; pendingOpener = { trigger: trigger, text: ut, replies: u.replies }; if (!peek.hidden && !peekText.querySelector('.aisr-typing')) { peekText.textContent = ut; track('shown', { trigger: trigger }); } } return; }
 		if (!proactiveAllowed(trigger)) {
-			dbg('  blocked: ' + (grp === 'control' ? 'control group (10% see no proactive messages)' : fired || get(SS, 'proactive', false) ? 'already had one proactive message this visit' : get(SS, 'dismissed', false) ? 'a bubble was closed this visit' : !panel.hidden ? 'chat is open' : history.length ? 'already chatted this visit' : 'proactive off (checkout or budget)'));
+			dbg('  blocked: ' + (C.proactiveMode === 'all' && grp !== 'control' ? (!panel.hidden ? 'chat is open' : !peek.hidden ? 'a bubble is showing' : firedSet[trigger] ? 'this trigger already spoke on this page' : 'pause between messages (' + (C.proactiveCooldown || 0) + 's)') : grp === 'control' ? 'control group (10% see no proactive messages)' : fired || get(SS, 'proactive', false) ? 'already had one proactive message this visit' : get(SS, 'dismissed', false) ? 'a bubble was closed this visit' : !panel.hidden ? 'chat is open' : history.length ? 'already chatted this visit' : 'proactive off (checkout or budget)'));
 			return;
 		}
 		if (!strong && !eligible()) { dbg('  waiting: needs 2 pages or the dwell time'); return; }
@@ -442,7 +450,7 @@
 			if (!prevVisitProduct || !prevVisitProduct.name) return;
 			text = text.replace('{prev}', prevVisitProduct.name);
 		}
-		fired = true; set(SS, 'proactive', true); currentTrigger = trigger; dbg('  SHOWN');
+		fired = true; set(SS, 'proactive', true); currentTrigger = trigger; firedSet[trigger] = true; lastShownAt = Date.now(); dbg('  SHOWN');
 		pendingOpener = { trigger: trigger, text: text, replies: o.replies };
 		if (trigger === 'gallery') {
 			// The shopper is looking at a large image: open the full chat next to it, not a small bubble.
@@ -469,7 +477,7 @@
 	function hidePeek(dismissed) {
 		if (peek.hidden) return;
 		peek.hidden = true; root.classList.remove('aisr-peeking');
-		if (dismissed) { set(SS, 'dismissed', true); track('dismissed', { trigger: pendingOpener ? pendingOpener.trigger : '' }); pendingOpener = null; dot.hidden = true; }
+		if (dismissed) { lastShownAt = Date.now(); set(SS, 'dismissed', true); track('dismissed', { trigger: pendingOpener ? pendingOpener.trigger : '' }); pendingOpener = null; dot.hidden = true; }
 	}
 	peekClose.addEventListener('click', function (e) { e.stopPropagation(); hidePeek(true); });
 

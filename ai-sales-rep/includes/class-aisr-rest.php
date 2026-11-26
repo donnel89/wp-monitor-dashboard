@@ -160,7 +160,7 @@ class AISR_REST {
 			$image = array( 'type' => $m[1], 'data' => $m[2] );
 		}
 
-		$result = AISR_Claude::chat( $conv, $message, $page, (int) $conv['user_turns'] === 0 ? $opener : '', $image );
+		$result = AISR_Claude::chat( $conv, $message, $page, $opener, $image ); // The latest proactive message, also mid-conversation.
 		self::set_attribution_cookie( $conv['uuid'] );
 
 		return rest_ensure_response(

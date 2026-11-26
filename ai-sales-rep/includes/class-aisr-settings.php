@@ -114,6 +114,8 @@ class AISR_Settings {
 			'retention_days'       => 90,
 			// Credit.
 			'show_credit'          => 1,
+			'proactive_mode'       => 'one',
+			'proactive_cooldown'   => 30,
 			'fresh_visits'         => 0,
 			'credit_text'          => '',
 			'credit_url'           => '',
@@ -270,6 +272,7 @@ class AISR_Settings {
 			'visibility'       => array( 'admins', 'all' ),
 			'model_mode'       => array( 'balanced', 'economy' ),
 			'reminder_channel' => array( 'email', 'whatsapp_digest' ),
+			'proactive_mode'   => array( 'one', 'all' ),
 		);
 		foreach ( $enums as $k => $allowed ) {
 			$v         = (string) ( $in[ $k ] ?? '' );
@@ -291,6 +294,7 @@ class AISR_Settings {
 			'control_pct'        => array( 0, 50 ),
 			'retention_days'     => array( 1, 3650 ),
 			'free_ship_gap'      => array( 0, 1000 ),
+			'proactive_cooldown' => array( 0, 600 ),
 			'ready_days'         => array( 1, 60 ),
 			'made_days'          => array( 1, 120 ),
 		);
@@ -422,6 +426,8 @@ class AISR_Settings {
 				<table class="form-table" role="presentation">
 					<?php
 					self::field_check( 'enabled', 'הפעלה', 'הצ\'אט פעיל' );
+					self::field_select( 'proactive_mode', 'פניות יזומות', array( 'one' => 'אחת בכל ביקור (לפי האפיון)', 'all' => 'כל הטריגרים: כל טריגר יכול לפנות, גם אחרי בועה קודמת או שיחה' ), 'במצב כל הטריגרים: כל טריגר פעם אחת בכל עמוד, ובין הודעה להודעה הפסקה לפי השדה הבא.' );
+					self::field_text( 'proactive_cooldown', 'הפסקה בין פניות יזומות (שניות)', '0 = בלי הפסקה.', 'number' );
 					self::field_check( 'fresh_visits', 'כל טעינת עמוד כמו גולש חדש', 'לתקופת בדיקות: אין מגבלה של פנייה אחת בביקור ואין קבוצת ביקורת, לכל הגולשים. שיחה שהתחילה נשמרת. לכבות בסיום הבדיקות, אחרת אין מדידה מול ביקורת.' );
 					self::field_select(
 						'visibility',

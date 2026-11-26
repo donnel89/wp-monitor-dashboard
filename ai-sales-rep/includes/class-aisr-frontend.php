@@ -274,6 +274,8 @@ class AISR_Frontend {
 				'checkoutProactive' => 'ok' === $budget,
 				'version'       => AISR_VERSION,
 				'freshVisits'   => ! empty( $s['fresh_visits'] ),
+				'proactiveMode' => $s['proactive_mode'],
+				'proactiveCooldown' => (int) $s['proactive_cooldown'],
 				'isManager'     => current_user_can( 'manage_woocommerce' ), // Logged-in pages are not served from page cache.
 				'testMode'      => 'all' !== $s['visibility'], // Shop managers testing: every page load starts a fresh visit.
 				'persona'       => array(
