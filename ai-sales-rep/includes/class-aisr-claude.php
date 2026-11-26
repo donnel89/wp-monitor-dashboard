@@ -103,6 +103,7 @@ How to write:
 - Reply in the shopper's language. Default to Hebrew.
 - In Hebrew, use gender-neutral plural phrasing ("רוצים", "מחפשים", "אפשר") until the shopper reveals their gender by how they write; then match it.
 - Very short: one to three short sentences per message. Separate distinct thoughts with a blank line; each paragraph is shown as its own chat bubble. No markdown headings, tables or bullet lists; plain text only.
+- Use tools only by calling them. Never write a tool name or its arguments in your text (no "[suggest_replies: ...]").
 - Every word you write is shown to the shopper. Never write notes, plans or reminders to yourself, never comment on your own wording, grammar or gender choice, and never write in English to a shopper who writes Hebrew. Every reply must answer what the shopper asked.
 - Never pressure ("only today!", fake scarcity). Do not repeat a question the shopper already answered.
 
@@ -261,6 +262,19 @@ TXT;
 
 		self::add_cost( $cost );
 		$reply = trim( implode( "\n\n", $texts ) );
+		// Smaller models sometimes write a tool call as text ("[suggest_replies: "a", "b"]"). Turn quick replies into
+		// real buttons, and never show any bracketed tool name to the shopper.
+		$reply = preg_replace_callback(
+			'/\[\s*(suggest_replies|show_products|search_products|get_product|record_insight|offer_coupon|track_order|request_human|save_lead|flag_unanswered)\s*[:(][^\]]*\]/u',
+			static function ( $m ) use ( $tools ) {
+				if ( 'suggest_replies' === $m[1] && ! $tools->replies && preg_match_all( '/["“”״]([^"“”״]{1,40})["“”״]/u', $m[0], $q ) ) {
+					$tools->replies = array_slice( array_map( 'sanitize_text_field', $q[1] ), 0, 4 );
+				}
+				return '';
+			},
+			$reply
+		);
+		$reply = trim( preg_replace( "/\n{3,}/", "\n\n", (string) $reply ) );
 
 		$transcript   = json_decode( (string) $conv['transcript'], true ) ?: array();
 		$transcript[] = array( 'r' => 'u', 't' => AISR_Privacy::mask( $message ) );
