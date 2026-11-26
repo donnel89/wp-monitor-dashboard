@@ -34,6 +34,7 @@ class AISR_Frontend {
 		return array(
 			'type'       => $type,
 			'product_id' => $pid,
+			'made_to_order' => $pid && ( $p = wc_get_product( $pid ) ) && 'onbackorder' === $p->get_stock_status(),
 			'title'      => wp_strip_all_tags( wp_get_document_title() ),
 		);
 	}
@@ -50,7 +51,10 @@ class AISR_Frontend {
 			'gallery'            => array( 'רוצים פרטים על החומר והמידות המדויקות של {product}?', array( 'כן', 'מה המידות?', 'ממה זה עשוי?' ) ),
 			'size_switch'        => array( 'מתלבטים במידה? ספרו לי מה המידה הרגילה, ואמליץ מה לבחור.', array( 'עזרה במידה', 'איך מחליפים מידה?' ) ),
 			'cart_idle'          => array( 'בחירה טובה! {shipping_line} נשארה שאלה לפני התשלום?', array( 'עלות משלוח', 'אמצעי תשלום', 'מדיניות החזרות' ) ),
-			'social_visitor'     => array( 'היי 🙂 נעים להכיר! {trust_line} אפשר לשאול אותי כל דבר.', array( 'מי אתם?', 'משלוח והחזרות', 'מה הכי נמכר?' ) ),
+			'social_visitor'     => array( 'היי 🙂 נעים להכיר! {story_line} אפשר לשאול אותי כל דבר.', array( 'מי אתם?', 'מה הכי נמכר?', 'מחפשים מתנה' ) ),
+			'freeship_gap'       => array( 'חסרים לכם {gap} ₪ למשלוח חינם 🙂 רוצים שאציע משהו קטן שמתאים למה שבסל?', array( 'כן, תציעו', 'לא תודה' ) ),
+			'holiday_made'       => array( 'רק שתדעו 🙂 את {product} מכינים בהזמנה (כ-{made_days} ימי עסקים), ולכן כנראה זה לא יגיע עד {holiday}. רוצים שאציע משהו דומה שמוכן במלאי?', array( 'כן, מה יש במלאי?', 'לא דחוף לי' ) ),
+			'made_lead'          => array( 'את {product} מכינים במיוחד אחרי ההזמנה. רוצים שהסטודיו יעדכן אתכם מתי זה יכול להיות מוכן?', array( 'כן, תעדכנו אותי', 'כמה זמן זה לוקח?', 'לא תודה' ) ),
 			'idle'               => array( 'צריכים עזרה למצוא משהו?', array( 'כן', 'מה הכי נמכר?', 'רק מסתכלים' ) ),
 			'returning'          => array( 'ברוכים השבים 🙂 ראיתי שבדקתם את {prev} בפעם הקודמת. רוצים לחזור אליו?', array( 'כן, תראו לי', 'מחפשים משהו אחר' ) ),
 			'category'           => array( 'יש פה הרבה אפשרויות. לעזור לצמצם לפי תקציב או לפי שימוש?', array( 'לפי תקציב', 'לפי שימוש', 'מה הכי נמכר?' ) ),
@@ -80,7 +84,11 @@ class AISR_Frontend {
 			$p = wc_get_product( $page['product_id'] );
 			if ( $p ) {
 				$name = $p->get_name();
-				foreach ( $p->get_attributes() as $key => $attr ) {
+				$topic = AISR_Knowledge::top_topic( $p->get_id() );
+				if ( $topic ) {
+					$hint = 'שואלים עליו הרבה על ' . $topic . '.';
+				}
+				foreach ( $topic ? array() : $p->get_attributes() as $key => $attr ) { // A learned topic wins over the size guess.
 					$label = $attr instanceof WC_Product_Attribute ? wc_attribute_label( $attr->get_name(), $p ) : (string) $key;
 					if ( preg_match( '/size|מידה|מידות/ui', urldecode( $label . ' ' . $key ) ) ) {
 						$hint = 'הרבה שואלים פה על המידות.';
@@ -98,6 +106,10 @@ class AISR_Frontend {
 			'trust_line'    => $trust ? $trust . '.' : '',
 			'shipping_line' => $s['shipping_summary'] ? $s['shipping_summary'] . '.' : '',
 			'prev'          => '{prev}', // Filled in the browser from the previous visit.
+			'gap'           => '{gap}', // Filled in the browser from the live cart.
+			'story_line'    => $s['brand_story'] ? rtrim( $s['brand_story'], '.' ) . '.' : ( $trust ? $trust . '.' : '' ),
+			'made_days'     => (string) $s['made_days'],
+			'holiday'       => $s['holiday_name'],
 		);
 		$emoji = 'friendly' === $s['persona_template'];
 		$out   = array();
@@ -138,6 +150,9 @@ class AISR_Frontend {
 				// Test mode only (logged-in, uncached pages): lets REST see the logged-in manager.
 				'restNonce'     => 'all' === $s['visibility'] ? '' : wp_create_nonce( 'wp_rest' ),
 				'page'          => $page,
+				'freeShipMin'   => (float) AISR_Knowledge::free_shipping_min(),
+				'freeShipGap'   => (int) $s['free_ship_gap'],
+				'holiday'       => AISR_Knowledge::holiday(),
 				'testMode'      => 'all' !== $s['visibility'], // Shop managers testing: every page load starts a fresh visit.
 				'persona'       => array(
 					'name'   => $s['persona_name'],

@@ -111,6 +111,8 @@ class AISR_REST {
 		$uuid    = sanitize_text_field( (string) $req->get_param( 'conversation_id' ) );
 		$opener  = sanitize_text_field( (string) $req->get_param( 'opener' ) );
 
+		AISR_Knowledge::record_topic( (int) $page['product_id'], $message ); // What shoppers ask about each product.
+
 		// The visitor's cart (for coupons, leads and context).
 		if ( function_exists( 'wc_load_cart' ) ) {
 			wc_load_cart();

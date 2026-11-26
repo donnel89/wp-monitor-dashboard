@@ -27,6 +27,9 @@ class AISR_Settings {
 			'category'           => 'שהייה בעמוד קטגוריה',
 			'home'               => 'שהייה בעמוד הבית',
 			'blog'               => 'קריאת מאמר בבלוג',
+			'freeship_gap'       => 'סל קרוב לסף המשלוח החינם',
+			'holiday_made'       => 'מוצר בהזמנה מראש שלא יגיע עד החג',
+			'made_lead'          => 'יציאה מעמוד של מוצר בהזמנה מראש (הצעה לעדכון)',
 		);
 	}
 
@@ -83,6 +86,14 @@ class AISR_Settings {
 			'attribution_days'     => 7,
 			'monthly_budget_usd'   => 30,
 			'model_mode'           => 'balanced',
+			// Sales features.
+			'free_ship_gap'        => 100,
+			'ready_days'           => 5,
+			'made_days'            => 15,
+			'holiday_name'         => '',
+			'holiday_date'         => '',
+			'brand_story'          => '',
+			'reminder_channel'     => 'email',
 			'control_pct'          => 10,
 			// Privacy.
 			'privacy_mode'         => 'basic',
@@ -224,7 +235,7 @@ class AISR_Settings {
 		$old = self::all();
 		$out = array();
 
-		$text = array( 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
+		$text = array( 'holiday_name', 'brand_story', 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
 		foreach ( $text as $k ) {
 			$out[ $k ] = sanitize_text_field( $in[ $k ] ?? '' );
 		}
@@ -244,6 +255,7 @@ class AISR_Settings {
 			'privacy_mode'     => array( 'basic', 'extended' ),
 			'visibility'       => array( 'admins', 'all' ),
 			'model_mode'       => array( 'balanced', 'economy' ),
+			'reminder_channel' => array( 'email', 'whatsapp_digest' ),
 		);
 		foreach ( $enums as $k => $allowed ) {
 			$v         = (string) ( $in[ $k ] ?? '' );
@@ -264,6 +276,9 @@ class AISR_Settings {
 			'attribution_days'   => array( 1, 30 ),
 			'control_pct'        => array( 0, 50 ),
 			'retention_days'     => array( 1, 3650 ),
+			'free_ship_gap'      => array( 0, 1000 ),
+			'ready_days'         => array( 1, 60 ),
+			'made_days'          => array( 1, 120 ),
 		);
 		foreach ( $ints as $k => $range ) {
 			$out[ $k ] = max( $range[0], min( $range[1], (int) ( $in[ $k ] ?? $d[ $k ] ) ) );
@@ -272,6 +287,8 @@ class AISR_Settings {
 			$out[ $k ] = max( 0, (float) ( $in[ $k ] ?? $d[ $k ] ) );
 		}
 
+		$hd                  = (string) ( $in['holiday_date'] ?? '' );
+		$out['holiday_date'] = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $hd ) ? $hd : '';
 		$out['work_days']            = array_values( array_intersect( array_map( 'intval', (array) ( $in['work_days'] ?? array() ) ), range( 0, 6 ) ) );
 		$out['enabled_triggers']     = array_values( array_intersect( (array) ( $in['enabled_triggers'] ?? array() ), array_keys( self::trigger_labels() ) ) );
 		$out['coupon_reasons']       = array_values( array_intersect( (array) ( $in['coupon_reasons'] ?? array() ), array_keys( AISR_Tools::coupon_reason_labels() ) ) );
@@ -431,6 +448,12 @@ class AISR_Settings {
 					self::field_text( 'business_phone', 'טלפון' );
 					self::field_textarea( 'advantages', 'יתרונות החנות', 'שורה לכל יתרון. משמש בתשובות על השוואה למתחרים. לדוגמה: אחריות יבואן רשמי לשנתיים' );
 					self::field_text( 'shipping_summary', 'משלוחים בקצרה', 'לדוגמה: משלוח חינם מעל 300 ₪, 3–5 ימי עסקים' );
+					self::field_text( 'brand_story', 'הסיפור של המותג במשפט', 'נפתח איתו לגולשים שמגיעים מאינסטגרם, טיקטוק ופייסבוק.' );
+					self::field_text( 'free_ship_gap', 'הצעה להשלים למשלוח חינם (₪)', 'כשחסר בסל עד הסכום הזה, הבוט מציע מוצר קטן שמשלים. 0 = כבוי. הסף עצמו נקרא מהגדרות המשלוח בווקומרס.', 'number' );
+					self::field_text( 'ready_days', 'זמן אספקה למוצר במלאי (ימי עסקים)', '', 'number' );
+					self::field_text( 'made_days', 'זמן הכנה למוצר בהזמנה מראש (ימי עסקים)', '', 'number' );
+					self::field_text( 'holiday_name', 'חג קרוב', 'לדוגמה: חנוכה. הבוט בודק אם מוצר יגיע בזמן. ריק = כבוי.' );
+					self::field_text( 'holiday_date', 'תאריך החג', 'היום שעד אליו המתנה צריכה להגיע.', 'date' );
 					self::field_text( 'returns_summary', 'החזרות בקצרה', 'לדוגמה: החלפה או החזרה חינם תוך 14 יום' );
 					self::field_text( 'warranty_summary', 'אחריות בקצרה' );
 					self::field_text( 'payment_summary', 'תשלום בקצרה', 'לדוגמה: אשראי, ביט, עד 3 תשלומים' );
@@ -503,6 +526,7 @@ class AISR_Settings {
 					);
 					self::field_text( 'privacy_url', 'קישור למדיניות הפרטיות', '', 'url' );
 					self::field_text( 'retention_days', 'שמירת שיחות (ימים)', '', 'number' );
+					self::field_select( 'reminder_channel', 'תזכורת עגלה נטושה', array( 'email' => 'מייל ללקוח (רק למי שמסר מייל ואישר דיוור)', 'whatsapp_digest' => 'מייל ללקוח + סיכום יומי לחנות עם קישורי וואטסאפ מוכנים למי שמסר טלפון' ), 'וואטסאפ נשלח ידנית מהטלפון של החנות בלחיצה, כך שלא צריך WhatsApp Business API.' );
 					self::field_check( 'show_credit', 'קרדיט קטן בתחתית הצ\'אט' );
 					self::field_text( 'credit_text', 'טקסט הקרדיט' );
 					self::field_text( 'credit_url', 'קישור הקרדיט', '', 'url' );

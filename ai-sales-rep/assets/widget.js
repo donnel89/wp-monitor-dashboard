@@ -204,7 +204,7 @@
 			btn.addEventListener('click', function () {
 				btn.disabled = true; btn.textContent = 'מוסיף…';
 				storeApi('/cart/add-item', { id: p.id, quantity: 1 }).then(function () {
-					btn.textContent = 'נוסף לסל ✓'; refreshMiniCart(); track('add_to_cart', { trigger: 'card' });
+					btn.textContent = 'נוסף לסל ✓'; refreshMiniCart(); track('add_to_cart', { trigger: 'card' }); setChips(['מה מתאים לזה?']);
 				}).catch(function () { btn.disabled = false; btn.textContent = 'לעמוד המוצר'; btn.onclick = function () { location.href = p.url; }; });
 			});
 		} else {
@@ -348,12 +348,16 @@
 	function enabled(trigger) { return (C.triggers || []).indexOf(trigger) !== -1; }
 	function eligible() { return pages >= (C.minPages || 2) || (page.type === 'product' && (Date.now() - startedAt) / 1000 >= (C.productDwell || 20)); }
 
-	function fire(trigger, strong) {
+	function fire(trigger, strong, vars) {
+		// A made-to-order product changes what is worth saying: the lead time before a holiday, or an offer to be updated.
+		if (page.made_to_order && trigger === 'product_dwell' && C.holiday && !C.holiday.madeOk && enabled('holiday_made')) trigger = 'holiday_made';
+		if (page.made_to_order && trigger === 'exit_scroll' && enabled('made_lead')) trigger = 'made_lead';
 		if (!enabled(trigger) || !proactiveAllowed()) return;
 		if (!strong && !eligible()) return;
 		var o = C.openers && C.openers[trigger];
 		if (!o) return;
 		var text = o.text;
+		for (var v in vars || {}) text = text.split('{' + v + '}').join(vars[v]);
 		if (trigger === 'returning') {
 			if (!prevVisitProduct || !prevVisitProduct.name) return;
 			text = text.replace('{prev}', prevVisitProduct.name);
@@ -461,6 +465,20 @@
 	}, true);
 
 	// Added to cart and stopped.
+	// Close to the free-shipping threshold: offer one small item that completes the cart.
+	function checkFreeShip() {
+		if (!C.freeShipMin || !C.freeShipGap) return;
+		fetch(C.storeApi + '/cart', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (cart) {
+			var t = cart && cart.totals; if (!t) return;
+			var unit = Math.pow(10, t.currency_minor_unit || 0);
+			var sub = (parseInt(t.total_items, 10) + parseInt(t.total_items_tax || 0, 10)) / unit;
+			var gap = Math.ceil(C.freeShipMin - sub);
+			if (sub > 0 && gap > 0 && gap <= C.freeShipGap) fire('freeship_gap', true, { gap: gap });
+		}).catch(function () { /* ignore */ });
+	}
+	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', function () { setTimeout(checkFreeShip, 3000); });
+	if (page.type === 'cart') setTimeout(checkFreeShip, 6000);
+
 	function cartIdle() { setTimeout(function () { if (Date.now() - lastActivity > 15000 || page.type === 'cart') fire('cart_idle', true); }, 25000); }
 	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', cartIdle);
 	document.body.addEventListener('wc-blocks_added_to_cart', cartIdle);

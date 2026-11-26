@@ -138,6 +138,101 @@ class AISR_Knowledge {
 		return mb_strlen( $text ) > $max ? mb_substr( $text, 0, $max ) . '…' : $text;
 	}
 
+	/** Lowest free-shipping threshold across the store's shipping zones, 0 when there is none. */
+	public static function free_shipping_min(): float {
+		if ( ! class_exists( 'WC_Shipping_Zones' ) ) {
+			return 0;
+		}
+		$min = 0;
+		foreach ( WC_Shipping_Zones::get_zones() as $zone ) {
+			foreach ( $zone['shipping_methods'] as $m ) {
+				if ( 'yes' === $m->enabled && 'free_shipping' === $m->id ) {
+					$v = (float) $m->get_option( 'min_amount' );
+					if ( $v > 0 && ( ! $min || $v < $min ) ) {
+						$min = $v;
+					}
+				}
+			}
+		}
+		return $min;
+	}
+
+	/** Business days (Sunday to Thursday) from tomorrow up to the day before $date. */
+	public static function business_days_until( string $date ): int {
+		$tz    = wp_timezone();
+		$day   = new DateTime( 'tomorrow', $tz );
+		$end   = new DateTime( $date, $tz );
+		$count = 0;
+		while ( $day < $end && $count < 400 ) {
+			if ( (int) $day->format( 'w' ) <= 4 ) {
+				++$count;
+			}
+			$day->modify( '+1 day' );
+		}
+		return $count;
+	}
+
+	/** The upcoming holiday from settings, while it is within 45 days: name, date, days left, what arrives in time. */
+	public static function holiday(): ?array {
+		$s = AISR_Settings::all();
+		if ( '' === $s['holiday_name'] || '' === $s['holiday_date'] ) {
+			return null;
+		}
+		$today = new DateTime( 'today', wp_timezone() );
+		$date  = new DateTime( $s['holiday_date'], wp_timezone() );
+		if ( $date <= $today || $today->diff( $date )->days > 45 ) {
+			return null;
+		}
+		$left = self::business_days_until( $s['holiday_date'] );
+		return array(
+			'name'     => $s['holiday_name'],
+			'date'     => $s['holiday_date'],
+			'daysLeft' => $left,
+			'readyOk'  => $left >= (int) $s['ready_days'],
+			'madeOk'   => $left >= (int) $s['made_days'],
+		);
+	}
+
+	/* ---------- what shoppers ask about each product (learned from chats, no AI call) ---------- */
+
+	const TOPICS = array(
+		'size'      => array( 'המידות', '/מידה|מידות|גודל|גובה|קוטר|נפח|ס"מ|סמ|מ"ל/u' ),
+		'dishwash'  => array( 'מדיח ומיקרוגל', '/מדיח|מיקרוגל|תנור/u' ),
+		'delivery'  => array( 'זמן ההגעה', '/מתי (יגיע|זה מגיע)|כמה זמן|זמן (אספקה|הכנה|משלוח)|עד (יום|החג)/u' ),
+		'name'      => array( 'הכיתוב האישי', '/שם|הקדשה|חריטה|כיתוב|לוגו/u' ),
+		'gift'      => array( 'אריזת מתנה', '/מתנה|אריזה|ברכה/u' ),
+		'color'     => array( 'הצבע', '/צבע|גוון/u' ),
+		'returns'   => array( 'החזרות', '/החזר|החלפ/u' ),
+	);
+
+	public static function record_topic( int $product_id, string $message ): void {
+		if ( ! $product_id || 'product' !== get_post_type( $product_id ) || 'publish' !== get_post_status( $product_id ) ) {
+			return; // The id comes from the browser: only count real, published products.
+		}
+		$counts = (array) get_post_meta( $product_id, '_aisr_topics', true );
+		$hit    = false;
+		foreach ( self::TOPICS as $key => $t ) {
+			if ( preg_match( $t[1], $message ) ) {
+				$counts[ $key ] = (int) ( $counts[ $key ] ?? 0 ) + 1;
+				$hit            = true;
+			}
+		}
+		if ( $hit ) {
+			update_post_meta( $product_id, '_aisr_topics', $counts );
+		}
+	}
+
+	/** The topic shoppers asked about most on this product, once it came up at least 3 times. */
+	public static function top_topic( int $product_id ): string {
+		$counts = array_filter( (array) get_post_meta( $product_id, '_aisr_topics', true ) );
+		if ( ! $counts ) {
+			return '';
+		}
+		arsort( $counts );
+		$key = (string) array_key_first( $counts );
+		return ( $counts[ $key ] >= 3 && isset( self::TOPICS[ $key ] ) ) ? self::TOPICS[ $key ][0] : '';
+	}
+
 	/** Context for the page the visitor is on. Sent uncached, after the cached store block. */
 	public static function page_context( array $page ): string {
 		$lines   = array( '# Where the visitor is now' );
@@ -167,6 +262,28 @@ class AISR_Knowledge {
 		$cart = self::cart_summary();
 		if ( $cart ) {
 			$lines[] = 'Cart: ' . $cart;
+		}
+		$min = self::free_shipping_min();
+		if ( $min && function_exists( 'WC' ) && WC()->cart ) {
+			$sub = (float) WC()->cart->get_displayed_subtotal();
+			$gap = $min - $sub;
+			$lines[] = $gap > 0
+				? 'Free shipping from ' . $min . '. Cart subtotal ' . $sub . ', missing ' . ceil( $gap ) . '.'
+				: 'Free shipping from ' . $min . ' (this cart already qualifies).';
+		}
+		$h = self::holiday();
+		if ( $h ) {
+			$s       = AISR_Settings::all();
+			$lines[] = sprintf(
+				'Upcoming holiday: %s on %s, %d business days left. In-stock items (%d business days): %s. Made-to-order items (about %d business days): %s.',
+				$h['name'],
+				$h['date'],
+				$h['daysLeft'],
+				$s['ready_days'],
+				$h['readyOk'] ? 'arrive in time' : 'may not arrive in time, suggest pickup',
+				$s['made_days'],
+				$h['madeOk'] ? 'arrive in time' : 'will NOT arrive in time'
+			);
 		}
 		return implode( "\n", $lines );
 	}
