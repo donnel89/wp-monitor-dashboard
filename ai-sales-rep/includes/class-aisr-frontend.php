@@ -26,6 +26,12 @@ class AISR_Frontend {
 			$type = 'category';
 		} elseif ( function_exists( 'is_account_page' ) && is_account_page() ) {
 			$type = 'account';
+		} elseif ( is_search() ) {
+			$type = 'search';
+		} elseif ( is_page() && in_array( (int) get_queried_object_id(), array_map( 'intval', (array) AISR_Settings::get( 'policy_page_ids' ) ), true )
+			&& preg_match( '/החזר|החלפ|משלוח|תקנון|מדיניות|פרטיות|אחריות|ביטול|return|refund|shipping|terms|privacy|warranty/ui', get_the_title( get_queried_object_id() ) ) ) {
+			// Only returns, shipping, terms and similar pages: an About page is not a sign of worry.
+			$type = 'policy';
 		} elseif ( is_front_page() ) {
 			$type = 'home';
 		} elseif ( is_singular( 'post' ) ) {
@@ -36,7 +42,50 @@ class AISR_Frontend {
 			'product_id' => $pid,
 			'made_to_order' => $pid && ( $p = wc_get_product( $pid ) ) && 'onbackorder' === $p->get_stock_status(),
 			'title'      => wp_strip_all_tags( wp_get_document_title() ),
+			'query'      => 'search' === $type ? mb_substr( get_search_query(), 0, 60 ) : '',
+			'search_empty' => 'search' === $type && ! have_posts(),
+			'cart_made'  => in_array( $type, array( 'cart', 'checkout' ), true ) ? self::cart_made_to_order() : '',
 		);
+	}
+
+	/** Names of made-to-order items in the cart, for a heads-up before paying. */
+	public static function cart_made_to_order(): string {
+		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return '';
+		}
+		$names = array();
+		foreach ( WC()->cart->get_cart() as $item ) {
+			$p = $item['data'] ?? null;
+			if ( $p && 'onbackorder' === $p->get_stock_status() ) {
+				$names[] = $p->get_name();
+			}
+		}
+		return implode( ', ', array_slice( array_unique( $names ), 0, 3 ) );
+	}
+
+	/** Keeps the last 100 searches that found nothing, for the dashboard (what shoppers want and do not find). */
+	private static function log_failed_search( string $q ): void {
+		$q    = sanitize_text_field( $q );
+		$list = (array) get_option( 'aisr_failed_searches', array() );
+		$key  = mb_strtolower( $q );
+		$list[ $key ] = array( 'q' => $q, 'n' => (int) ( $list[ $key ]['n'] ?? 0 ) + 1, 't' => time() );
+		uasort( $list, static fn( $a, $b ) => $b['t'] <=> $a['t'] );
+		update_option( 'aisr_failed_searches', array_slice( $list, 0, 100, true ), false );
+	}
+
+	/** Whether the store offers local pickup in any shipping zone. */
+	private static function has_pickup(): bool {
+		if ( ! class_exists( 'WC_Shipping_Zones' ) ) {
+			return false;
+		}
+		foreach ( WC_Shipping_Zones::get_zones() as $zone ) {
+			foreach ( $zone['shipping_methods'] as $m ) {
+				if ( 'yes' === $m->enabled && in_array( $m->id, array( 'local_pickup', 'pickup_location' ), true ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Templates per trigger. Neutral-gender Hebrew. {product}, {adv}, {shipping}, {returns}, {trust}. */
@@ -54,6 +103,16 @@ class AISR_Frontend {
 			'social_visitor'     => array( 'היי 🙂 נעים להכיר! {story_line} אפשר לשאול אותי כל דבר.', array( 'מי אתם?', 'מה הכי נמכר?', 'מחפשים מתנה' ) ),
 			'freeship_gap'       => array( 'חסרים לכם {gap} ₪ למשלוח חינם 🙂 רוצים שאציע משהו קטן שמתאים למה שבסל?', array( 'כן, תציעו', 'לא תודה' ) ),
 			'holiday_made'       => array( 'רק שתדעו 🙂 את {product} מכינים בהזמנה (כ-{made_days} ימי עסקים), ולכן כנראה זה לא יגיע עד {holiday}. רוצים שאציע משהו דומה שמוכן במלאי?', array( 'כן, מה יש במלאי?', 'לא דחוף לי' ) ),
+			'checkout_help'      => array( 'שאלה על משלוח או תשלום? אני כאן 🙂 {payment_line}', array( 'אמצעי תשלום', 'זמן משלוח', 'איסוף עצמי' ) ),
+			'shipping_cost'      => array( 'שמתם לב לעלות המשלוח? {freeship_hint}{pickup_hint}רוצים שאבדוק מה הכי משתלם?', array( 'מה האפשרויות?', 'מה חסר למשלוח חינם?' ) ),
+			'add_error'          => array( 'משהו לא הסתדר בהוספה לסל? לפעמים צריך לבחור קודם אפשרות, למשל כמות או צבע. רוצים שאעזור?', array( 'כן, תעזרו לי', 'איזה אפשרויות יש?' ) ),
+			'search_empty'       => array( 'לא מצאנו "{query}" 🙂 ספרו לי מה מחפשים, ואמצא משהו דומה.', array( 'מתנה', 'כוסות וספלים', 'כלי הגשה' ) ),
+			'rage_click'         => array( 'משהו לא עובד? אפשר להזמין דרכי או לדבר עם הצוות.', array( 'להזמין דרך הצ׳אט', 'לדבר עם הצוות' ) ),
+			'compare_many'       => array( 'מתלבטים בין כמה מוצרים? 🙂 אשווה לכם בקצרה ואגיד מה מתאים למה.', array( 'כן, תשוו לי', 'למה ההבדל במחיר?' ) ),
+			'cart_made'          => array( 'רק שתדעו 🙂 את {cart_made} מכינים בהזמנה (כ-{made_days} ימי עסקים). {holiday_part}רוצים חלופה מהמלאי?', array( 'כן, מה יש במלאי?', 'זה בסדר' ) ),
+			'policy_return'      => array( 'ראיתי שבדקתם את המדיניות 🙂 {trust_line} מה מטריד אתכם?', array( 'משלוח', 'החזרות', 'זמן הכנה' ) ),
+			'cart_waiting'       => array( 'ברוכים השבים 🙂 {item} עדיין מחכה לכם בסל. נשארה שאלה?', array( 'יש לי שאלה', 'לסל', 'לא תודה' ) ),
+			'footer_reached'     => array( 'הגעתם עד הסוף 🙂 משהו חסר לכם בעמוד?', array( 'מידות', 'זמן הכנה', 'משלוח' ) ),
 			'made_lead'          => array( 'את {product} מכינים במיוחד אחרי ההזמנה. רוצים שהסטודיו יעדכן אתכם מתי זה יכול להיות מוכן?', array( 'כן, תעדכנו אותי', 'כמה זמן זה לוקח?', 'לא תודה' ) ),
 			'idle'               => array( 'צריכים עזרה למצוא משהו?', array( 'כן', 'מה הכי נמכר?', 'רק מסתכלים' ) ),
 			'returning'          => array( 'ברוכים השבים 🙂 ראיתי שבדקתם את {prev} בפעם הקודמת. רוצים לחזור אליו?', array( 'כן, תראו לי', 'מחפשים משהו אחר' ) ),
@@ -110,6 +169,13 @@ class AISR_Frontend {
 			'story_line'    => $s['brand_story'] ? rtrim( $s['brand_story'], '.' ) . '.' : ( $trust ? $trust . '.' : '' ),
 			'made_days'     => (string) $s['made_days'],
 			'holiday'       => $s['holiday_name'],
+			'query'         => $page['query'] ?? '',
+			'item'          => '{item}', // Filled in the browser from the saved cart.
+			'cart_made'     => $page['cart_made'] ?? '',
+			'holiday_part'  => ( $h = AISR_Knowledge::holiday() ) && ! $h['madeOk'] ? 'זה לא יגיע עד ' . $h['name'] . '. ' : '',
+			'payment_line'  => $s['payment_summary'] ? 'אפשר לשלם ב' . $s['payment_summary'] . '.' : '',
+			'freeship_hint' => ( $fm = AISR_Knowledge::free_shipping_min() ) ? 'מעל ' . (int) $fm . ' ₪ המשלוח חינם. ' : '',
+			'pickup_hint'   => self::has_pickup() ? 'יש גם איסוף עצמי בלי עלות. ' : '',
 		);
 		$emoji = 'friendly' === $s['persona_template'];
 		$out   = array();
@@ -132,6 +198,9 @@ class AISR_Frontend {
 		}
 		$page   = self::page_info();
 		$budget = AISR_Claude::budget_state();
+		if ( ! empty( $page['search_empty'] ) && '' !== $page['query'] && 'all' === $s['visibility'] ) {
+			self::log_failed_search( $page['query'] );
+		}
 
 		wp_enqueue_style( 'aisr-widget', AISR_URL . 'assets/widget.css', array(), AISR_VERSION );
 		wp_enqueue_script( 'aisr-widget', AISR_URL . 'assets/widget.js', array(), AISR_VERSION, array( 'in_footer' => true, 'strategy' => 'defer' ) );
@@ -153,6 +222,7 @@ class AISR_Frontend {
 				'freeShipMin'   => (float) AISR_Knowledge::free_shipping_min(),
 				'freeShipGap'   => (int) $s['free_ship_gap'],
 				'holiday'       => AISR_Knowledge::holiday(),
+				'checkoutProactive' => 'ok' === $budget,
 				'testMode'      => 'all' !== $s['visibility'], // Shop managers testing: every page load starts a fresh visit.
 				'persona'       => array(
 					'name'   => $s['persona_name'],

@@ -225,6 +225,14 @@ class AISR_Dashboard {
 				<?php if ( ! $st['questions'] ) : ?><li>אין שאלות פתוחות.</li><?php endif; ?>
 			</ul>
 
+			<h2>חיפושים באתר שלא מצאו כלום</h2>
+			<p class="description">מה גולשים חיפשו ולא מצאו. אפשר להוסיף מוצר, מילת חיפוש בתיאור, או הפניה.</p>
+			<?php $aisr_fs = (array) get_option( 'aisr_failed_searches', array() ); uasort( $aisr_fs, static fn( $a, $b ) => $b['n'] <=> $a['n'] ); ?>
+			<ul style="list-style:disc;padding-right:20px">
+				<?php foreach ( array_slice( $aisr_fs, 0, 20 ) as $f ) : ?><li><?php echo esc_html( $f['q'] . ' (' . (int) $f['n'] . ')' ); ?></li><?php endforeach; ?>
+				<?php if ( ! $aisr_fs ) : ?><li>עדיין אין. נאסף רק אחרי פתיחה לכל הגולשים.</li><?php endif; ?>
+			</ul>
+
 			<h2>לידים אחרונים</h2>
 			<table class="widefat striped">
 				<thead><tr><th>תאריך</th><th>שם</th><th>טלפון</th><th>מייל</th><th>אישור דיוור</th></tr></thead>

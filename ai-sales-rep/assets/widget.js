@@ -17,7 +17,7 @@
 	// trigger can be tried again without opening a new tab. Live visitors keep the normal rules.
 	if (C.testMode) {
 		[SS, LS].forEach(function (s) {
-			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0 && k !== 'aisr_pages' && k !== 'aisr_viewed'; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
+			try { if (s) Object.keys(s).filter(function (k) { return k.indexOf('aisr_') === 0 && ['aisr_pages', 'aisr_viewed', 'aisr_policy_seen', 'aisr_added'].indexOf(k) === -1; }).forEach(function (k) { s.removeItem(k); }); } catch (e) { /* ignore */ }
 		});
 	}
 	function get(s, k, d) { try { var v = s && s.getItem('aisr_' + k); return v === null || v === undefined ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -342,8 +342,10 @@
 
 	/* ---------- proactive ---------- */
 	var fired = false;
-	function proactiveAllowed() {
-		return C.proactive && grp !== 'control' && !fired && !get(SS, 'proactive', false) && !get(SS, 'dismissed', false) && panel.hidden && !history.length;
+	var CHECKOUT_TRIGGERS = ['checkout_help', 'shipping_cost', 'cart_made', 'rage_click'];
+	function proactiveAllowed(trigger) {
+		var on = page.type === 'checkout' ? (C.checkoutProactive && CHECKOUT_TRIGGERS.indexOf(trigger) !== -1) : C.proactive;
+		return on && grp !== 'control' && !fired && !get(SS, 'proactive', false) && !get(SS, 'dismissed', false) && panel.hidden && !history.length;
 	}
 	function enabled(trigger) { return (C.triggers || []).indexOf(trigger) !== -1; }
 	function eligible() { return pages >= (C.minPages || 2) || (page.type === 'product' && (Date.now() - startedAt) / 1000 >= (C.productDwell || 20)); }
@@ -352,7 +354,12 @@
 		// A made-to-order product changes what is worth saying: the lead time before a holiday, or an offer to be updated.
 		if (page.made_to_order && trigger === 'product_dwell' && C.holiday && !C.holiday.madeOk && enabled('holiday_made')) trigger = 'holiday_made';
 		if (page.made_to_order && trigger === 'exit_scroll' && enabled('made_lead')) trigger = 'made_lead';
-		if (!enabled(trigger) || !proactiveAllowed()) return;
+		// On checkout, leaving or stalling becomes one gentle offer of help, and only after 40 seconds there.
+		if (page.type === 'checkout' && (trigger === 'exit_scroll' || trigger === 'tab_return' || trigger === 'idle')) {
+			if ((Date.now() - startedAt) / 1000 < 40) return;
+			trigger = 'checkout_help';
+		}
+		if (!enabled(trigger) || !proactiveAllowed(trigger)) return;
 		if (!strong && !eligible()) return;
 		var o = C.openers && C.openers[trigger];
 		if (!o) return;
@@ -412,7 +419,7 @@
 	document.addEventListener('visibilitychange', function () {
 		if (document.hidden) { hiddenAt = Date.now(); return; }
 		var away = (Date.now() - hiddenAt) / 1000;
-		if (hiddenAt && away >= 8 && away <= 1800 && page.type === 'product') fire('tab_return', true);
+		if (hiddenAt && away >= 8 && away <= 1800 && (page.type === 'product' || page.type === 'checkout')) fire('tab_return', true);
 	});
 
 	// Scroll: fast upward flick near the top (mobile exit intent) and back-and-forth re-reading.
@@ -465,6 +472,87 @@
 	}, true);
 
 	// Added to cart and stopped.
+	/* ---------- saving the visit before the shopper leaves ---------- */
+
+	// Shipping cost that appears at checkout (classic checkout refresh, or the blocks totals).
+	function shippingCharged() {
+		// Classic checkout, CheckoutWC (tr.shipping in its totals table), and the blocks checkout.
+		var cfw = document.querySelector('tr.shipping td');
+		if (cfw) { var a = cfw.querySelector('.woocommerce-Price-amount, .amount'); var mm = a ? a.textContent.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/) : null; return !!(mm && parseFloat(mm[1]) > 0); }
+		var el1 = document.querySelector('.woocommerce-shipping-totals input:checked') || document.querySelector('.woocommerce-shipping-totals li, .wc-block-components-totals-shipping .wc-block-components-totals-item__value');
+		var row = el1 && (el1.closest ? el1.closest('li, .wc-block-components-totals-item') : null) || el1;
+		// Read only the price element: method names can hold digits (an address, a street number).
+		var price = row && row.querySelector ? row.querySelector('.woocommerce-Price-amount, .amount') : null;
+		if (!price && row && /wc-block-components-totals-item__value/.test(row.className || '')) price = row;
+		var m = price ? price.textContent.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/) : null;
+		return !!(m && parseFloat(m[1]) > 0);
+	}
+	if (page.type === 'checkout') {
+		var shipCheck = function () { if (shippingCharged()) fire('shipping_cost', true); };
+		if (window.jQuery) window.jQuery(document.body).on('updated_checkout', function () { setTimeout(shipCheck, 800); });
+		setTimeout(shipCheck, 15000);
+		// Opened the coupon field and did not apply a coupon within 20 seconds.
+		document.addEventListener('click', function (e) {
+			if (!e.target.closest || !e.target.closest('.showcoupon, .wc-block-components-totals-coupon-link, .wc-block-components-panel__button')) return;
+			setTimeout(function () { if (!document.querySelector('.cart-discount, .wc-block-components-totals-discount')) fire('checkout_help', true); }, 20000);
+		}, true);
+	}
+
+	// Add to cart that did not go through: a disabled button (no option chosen) or a WooCommerce error notice.
+	document.addEventListener('click', function (e) {
+		var b = e.target.closest && e.target.closest('.single_add_to_cart_button');
+		if (b && (b.disabled || /disabled|wc-variation-selection-needed/.test(b.className))) fire('add_error', true);
+	}, true);
+	if (window.MutationObserver && page.type !== 'checkout') { // Checkout errors are payment errors, not add-to-cart ones.
+		new MutationObserver(function (list) {
+			list.forEach(function (m) { m.addedNodes.forEach(function (n) {
+				if (n.nodeType === 1 && (n.matches && n.matches('.woocommerce-error, .wc-block-components-notice-banner.is-error') || (n.querySelector && n.querySelector('.woocommerce-error, .wc-block-components-notice-banner.is-error')))) fire('add_error', true);
+			}); });
+		}).observe(document.body, { childList: true, subtree: true });
+	}
+	if (document.querySelector('.woocommerce-error, .wc-block-components-notice-banner.is-error') && page.type !== 'checkout') setTimeout(function () { fire('add_error', true); }, 1500);
+
+	// A site search that found nothing.
+	if (page.type === 'search' && page.search_empty) setTimeout(function () { fire('search_empty', true); }, 2500);
+
+	// Rage clicks: three fast clicks in the same spot usually mean something on the page does not work.
+	var clicks = [];
+	document.addEventListener('click', function (e) {
+		if (root.contains(e.target)) return;
+		var now = Date.now();
+		clicks = clicks.filter(function (c) { return now - c.t < 900; });
+		clicks.push({ t: now, x: e.clientX, y: e.clientY });
+		var near = clicks.filter(function (c) { return Math.abs(c.x - e.clientX) < 30 && Math.abs(c.y - e.clientY) < 30; });
+		if (near.length >= 3) { clicks = []; fire('rage_click', true); }
+	}, true);
+
+	// Several products viewed in this visit and nothing added yet.
+	if (page.type === 'product' && viewed.length >= 3 && !get(SS, 'added', false)) setTimeout(function () { fire('compare_many', true); }, 6000);
+	if (window.jQuery) window.jQuery(document.body).on('added_to_cart', function () { set(SS, 'added', true); });
+
+	// A made-to-order item in the cart: say the lead time before paying, not after.
+	if ((page.type === 'cart' || page.type === 'checkout') && page.cart_made) setTimeout(function () { fire('cart_made', true); }, 5000);
+
+	// Came back from a policy page (returns, shipping) to a product: something worries them.
+	if (page.type === 'policy') set(SS, 'policy_seen', true);
+	else if (page.type === 'product' && get(SS, 'policy_seen', false)) { set(SS, 'policy_seen', false); setTimeout(function () { fire('policy_return', true); }, 4000); }
+
+	// First page of a visit, and a cart from an earlier visit is still there.
+	if (pages === 1 && page.type !== 'cart' && page.type !== 'checkout') {
+		setTimeout(function () {
+			fetch(C.storeApi + '/cart', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (cart) {
+				if (cart && cart.items && cart.items.length) fire('cart_waiting', true, { item: cart.items[0].name });
+			}).catch(function () { /* ignore */ });
+		}, 5000);
+	}
+
+	// Scrolled to the bottom of a product page without doing anything.
+	if (page.type === 'product') {
+		window.addEventListener('scroll', function () {
+			if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 150) fire('footer_reached', false);
+		}, { passive: true });
+	}
+
 	// Close to the free-shipping threshold: offer one small item that completes the cart.
 	function checkFreeShip() {
 		if (!C.freeShipMin || !C.freeShipGap) return;
