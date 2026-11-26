@@ -362,7 +362,7 @@
 		var on = page.type === 'checkout' ? (C.checkoutProactive && CHECKOUT_TRIGGERS.indexOf(trigger) !== -1) : C.proactive;
 		return on && grp !== 'control' && !fired && !get(SS, 'proactive', false) && !get(SS, 'dismissed', false) && panel.hidden && !history.length;
 	}
-	var PRIORITY = { copy_name: 3, add_error: 3, shipping_cost: 3, checkout_help: 3, rage_click: 3, search_empty: 3,
+	var PRIORITY = { copy_name: 3, add_error: 3, shipping_cost: 3, checkout_help: 3, rage_click: 2, search_empty: 3,
 		cart_made: 2, holiday_made: 2, freeship_gap: 2, gallery: 2, tab_return: 2, exit_scroll: 2, made_lead: 2, compare_many: 2, policy_return: 2 };
 	var currentTrigger = '';
 	function prio(t) { return PRIORITY[t] || 1; }
@@ -569,11 +569,13 @@
 	var clicks = [];
 	document.addEventListener('click', function (e) {
 		if (root.contains(e.target)) return;
+		// Selecting text on a phone (long press, adjusting the handles) produces taps that are not frustration.
+		if (window.getSelection && String(window.getSelection()).trim()) { clicks = []; return; }
 		var now = Date.now();
 		clicks = clicks.filter(function (c) { return now - c.t < 900; });
 		clicks.push({ t: now, x: e.clientX, y: e.clientY });
 		var near = clicks.filter(function (c) { return Math.abs(c.x - e.clientX) < 30 && Math.abs(c.y - e.clientY) < 30; });
-		if (near.length >= 3) { clicks = []; fire('rage_click', true); }
+		if (near.length >= (isMobile ? 4 : 3)) { clicks = []; fire('rage_click', true); }
 	}, true);
 
 	// Several products viewed in this visit and nothing added yet.

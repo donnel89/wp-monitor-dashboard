@@ -92,7 +92,7 @@ class AISR_Frontend {
 	public static function openers(): array {
 		$o = array(
 			'product_dwell'      => array( 'היי 🙂 רואה שמסתכלים על {product}. {hint} רוצים שאעזור?', array( 'כן, יש לי שאלה', 'משלוח והחזרות', 'להשוות לדגם אחר' ) ),
-			'copy_name'          => array( 'רגע לפני שמחפשים במקום אחר 🙂 {adv_line} רוצים לשמוע מה עוד מקבלים אצלנו?', array( 'מה כלול במחיר?', 'משלוח והחזרות', 'ראיתי מחיר אחר' ) ),
+			'copy_name'          => array( 'רגע לפני שמשווים 🙂 {adv_line} ראיתם משהו דומה במקום אחר? ספרו לי ואגיד בכנות מה ההבדל.', array( 'ראיתי מחיר אחר', 'מה מיוחד בו?', 'משלוח והחזרות' ) ),
 			'comparison_visitor' => array( 'היי 🙂 משווים מחירים? {adv_line} אפשר לשאול אותי כל דבר.', array( 'מה כלול במחיר?', 'משלוח והחזרות', 'ראיתי מחיר אחר' ) ),
 			'tab_return'         => array( 'ברוכים השבים 🙂 נשארה שאלה על {product}?', array( 'כן', 'להשוות לדגם אחר', 'משלוח והחזרות' ) ),
 			'exit_scroll'        => array( 'לפני שהולכים, אפשר לעזור במשהו? {trust_line}', array( 'יש לי שאלה', 'משלוח והחזרות', 'לא תודה' ) ),
@@ -120,6 +120,10 @@ class AISR_Frontend {
 			'home'               => array( 'היי 🙂 מחפשים משהו מסוים, או רק מסתכלים?', array( 'מחפשים משהו מסוים', 'מה המבצעים?', 'רק מסתכלים' ) ),
 			'blog'               => array( 'מקווה שהמאמר עוזר 🙂 רוצים המלצה על מוצר שמתאים למה שכתוב כאן?', array( 'כן, תמליצו', 'לא תודה' ) ),
 		);
+		$custom = trim( (string) AISR_Settings::get( 'opener_copy' ) );
+		if ( '' !== $custom ) {
+			$o['copy_name'][0] = $custom; // The store's own words for someone about to compare elsewhere.
+		}
 		return apply_filters( 'aisr_openers', $o );
 	}
 

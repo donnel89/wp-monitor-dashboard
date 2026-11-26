@@ -103,6 +103,7 @@ class AISR_Settings {
 			'holiday_name'         => '',
 			'holiday_date'         => '',
 			'brand_story'          => '',
+			'opener_copy'          => '',
 			'reminder_channel'     => 'email',
 			'control_pct'          => 10,
 			// Privacy.
@@ -245,7 +246,7 @@ class AISR_Settings {
 		$old = self::all();
 		$out = array();
 
-		$text = array( 'holiday_name', 'brand_story', 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
+		$text = array( 'holiday_name', 'brand_story', 'opener_copy', 'persona_name', 'persona_role', 'business_name', 'business_address', 'business_years', 'business_phone', 'shipping_summary', 'returns_summary', 'warranty_summary', 'payment_summary', 'handoff_whatsapp', 'credit_text', 'hours_start', 'hours_end', 'hours_friday_end' );
 		foreach ( $text as $k ) {
 			$out[ $k ] = sanitize_text_field( $in[ $k ] ?? '' );
 		}
@@ -458,6 +459,7 @@ class AISR_Settings {
 					self::field_text( 'business_phone', 'טלפון' );
 					self::field_textarea( 'advantages', 'יתרונות החנות', 'שורה לכל יתרון. משמש בתשובות על השוואה למתחרים. לדוגמה: אחריות יבואן רשמי לשנתיים' );
 					self::field_text( 'shipping_summary', 'משלוחים בקצרה', 'לדוגמה: משלוח חינם מעל 300 ₪, 3–5 ימי עסקים' );
+					self::field_text( 'opener_copy', 'הודעה למי שמעתיק את שם המוצר', 'מי שמעתיק את השם הולך לחפש אותו במקום אחר. אפשר להשתמש ב-{product}. ריק = נוסח ברירת המחדל.' );
 					self::field_text( 'brand_story', 'הסיפור של המותג במשפט', 'נפתח איתו לגולשים שמגיעים מאינסטגרם, טיקטוק ופייסבוק.' );
 					self::field_text( 'free_ship_gap', 'הצעה להשלים למשלוח חינם (₪)', 'כשחסר בסל עד הסכום הזה, הבוט מציע מוצר קטן שמשלים. 0 = כבוי. הסף עצמו נקרא מהגדרות המשלוח בווקומרס.', 'number' );
 					self::field_text( 'ready_days', 'זמן אספקה למוצר במלאי (ימי עסקים)', '', 'number' );
