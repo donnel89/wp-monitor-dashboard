@@ -71,6 +71,7 @@ class AISR_REST {
 			'viewed'     => array_slice( array_map( 'absint', (array) ( $page['viewed'] ?? array() ) ), 0, 6 ),
 			'order_items' => mb_substr( sanitize_text_field( (string) ( $page['order_items'] ?? '' ) ), 0, 200 ),
 			'category'   => mb_substr( sanitize_text_field( (string) ( $page['category'] ?? '' ) ), 0, 80 ),
+			'workshop'   => ! empty( $page['workshop'] ),
 		);
 	}
 

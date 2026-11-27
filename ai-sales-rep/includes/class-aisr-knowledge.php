@@ -334,6 +334,10 @@ class AISR_Knowledge {
 				}
 			}
 		}
+		$ws_page = ! $pid && ( ! empty( $page['workshop'] ) || preg_match( '/סדנ|workshop/ui', ( $page['category'] ?? '' ) . ' ' . ( $page['title'] ?? '' ) ) );
+		if ( $ws_page ) {
+			$lines[] = 'The visitor is browsing the WORKSHOPS pages: they are interested in a workshop with Mai, not in buying items. Follow the workshop rules (search_products "סדנ" to see the workshops). Do not recommend cups, sets or other items unless they ask for them.';
+		}
 		if ( ! empty( $page['viewed'] ) && is_array( $page['viewed'] ) ) {
 			$names = array();
 			foreach ( array_slice( array_map( 'absint', $page['viewed'] ), 0, 6 ) as $vid ) {

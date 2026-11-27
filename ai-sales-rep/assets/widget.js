@@ -80,7 +80,7 @@
 
 	/* ---------- API ---------- */
 	function pageCtx() {
-		return { type: page.type, product_id: page.product_id, title: page.title, order_items: page.order_items || '', category: page.category || '', viewed: viewed.filter(function (id) { return id !== page.product_id; }) };
+		return { type: page.type, product_id: page.product_id, title: page.title, order_items: page.order_items || '', category: page.category || '', workshop: !!page.workshop, viewed: viewed.filter(function (id) { return id !== page.product_id; }) };
 	}
 	function post(path, body) {
 		var h = { 'Content-Type': 'application/json' };
