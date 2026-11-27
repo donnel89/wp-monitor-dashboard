@@ -71,7 +71,7 @@ class AISR_Dashboard {
 		$engaged   = 0;
 		$handoffs  = 0;
 		$triggers  = array();
-		$insight   = array( 'gift' => 0, 'self' => 0, 'priority' => array(), 'competitor' => 0, 'with_need' => 0 );
+		$insight   = array( 'gift' => 0, 'self' => 0, 'priority' => array(), 'competitor' => 0, 'with_need' => 0, 'mode' => array() );
 		$questions = array();
 		foreach ( $conv_rows as $r ) {
 			$cost     += (float) $r['cost_usd'];
@@ -94,6 +94,15 @@ class AISR_Dashboard {
 			}
 			if ( ! empty( $in['competitor'] ) || ! empty( $in['competitor_price'] ) ) {
 				$insight['competitor']++;
+			}
+			if ( ! empty( $in['buying_mode'] ) && in_array( $in['buying_mode'], array( 'heart', 'head', 'mixed' ), true ) ) {
+				$m = $in['buying_mode'];
+				$insight['mode'][ $m ] = $insight['mode'][ $m ] ?? array( 'n' => 0, 'orders' => 0, 'revenue' => 0.0 );
+				$insight['mode'][ $m ]['n']++;
+				if ( isset( $attributed['by_conv'][ $r['uuid'] ] ) ) {
+					$insight['mode'][ $m ]['orders']++;
+					$insight['mode'][ $m ]['revenue'] += $attributed['by_conv'][ $r['uuid'] ];
+				}
 			}
 			foreach ( json_decode( (string) $r['unanswered'], true ) ?: array() as $q ) {
 				$questions[] = $q;
@@ -215,6 +224,11 @@ class AISR_Dashboard {
 						<tr><td>הכי חשוב: <?php echo esc_html( $pri[ $k ] ?? $k ); ?></td><td><?php echo esc_html( $n ); ?></td></tr>
 					<?php endforeach; ?>
 					<tr><td>הזכירו מתחרה או מחיר אחר</td><td><?php echo esc_html( $in['competitor'] ); ?></td></tr>
+					<?php foreach ( array( 'heart' => 'קונים מהלב', 'head' => 'קונים מהראש', 'mixed' => 'מעורב' ) as $mk => $ml ) : ?>
+						<?php if ( ! empty( $in['mode'][ $mk ] ) ) : $mv = $in['mode'][ $mk ]; ?>
+							<tr><td><?php echo esc_html( $ml ); ?></td><td><?php echo esc_html( $mv['n'] . ' שיחות · ' . $mv['orders'] . ' הזמנות (' . self::pct( $mv['orders'] / $mv['n'] ) . ') · ' . self::money( $mv['revenue'] ) ); ?></td></tr>
+						<?php endif; ?>
+					<?php endforeach; ?>
 				</tbody>
 			</table>
 

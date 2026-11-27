@@ -151,6 +151,9 @@ class AISR_Tools {
 						'budget_max'        => array( 'type' => 'number' ),
 						'competitor'        => array( 'type' => 'string', 'description' => 'Competitor the visitor mentioned, if any' ),
 						'competitor_price'  => array( 'type' => 'number' ),
+						'buying_mode'       => array( 'type' => 'string', 'enum' => array( 'heart', 'head', 'mixed' ), 'description' => 'What leads the shopper right now: heart (excited, a gift for someone close, an occasion), head (sizes, dishwasher, price, delivery, bulk) or mixed' ),
+						'job'               => array( 'type' => 'string', 'description' => 'The job the purchase does, in a few Hebrew words: the moment, how they want to feel or be seen (e.g. "יום נישואין, לרגש אותו")' ),
+						'closeness'         => array( 'type' => 'string', 'enum' => array( 'close', 'distant', 'business' ), 'description' => 'Only for gifts: how close the recipient is' ),
 					),
 				),
 			),
@@ -355,7 +358,7 @@ class AISR_Tools {
 
 	private function record_insight( array $in ): array {
 		$cur = json_decode( (string) $this->conv['insights'], true ) ?: array();
-		foreach ( array( 'use_case', 'recipient', 'priority', 'competitor' ) as $k ) {
+		foreach ( array( 'use_case', 'recipient', 'priority', 'competitor', 'buying_mode', 'job', 'closeness' ) as $k ) {
 			if ( ! empty( $in[ $k ] ) ) {
 				$cur[ $k ] = sanitize_text_field( (string) $in[ $k ] );
 			}
