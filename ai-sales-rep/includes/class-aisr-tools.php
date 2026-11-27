@@ -58,14 +58,27 @@ class AISR_Tools {
 				),
 			),
 			array(
+				'name'        => 'show_options',
+				'description' => 'Show a picker in the chat for a product with options (color, size, a variation, or option fields such as choosing cups or a name), with pictures, prices and stock, and your recommendation preselected. The shopper picks and sends their choice back as a message starting with "בחרתי".',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'product_id' => array( 'type' => 'integer' ),
+						'preselect'  => array( 'type' => 'object', 'description' => 'Option name => recommended choice label, a list of labels for a multi-choice option (as many as it requires), or text the shopper already gave (e.g. a name)' ),
+					),
+					'required'   => array( 'product_id' ),
+				),
+			),
+			array(
 				'name'        => 'add_to_cart',
-				'description' => 'Add one product to the shopper\'s cart from the chat, when they ask you to add it or say yes to adding it. For a variable product pass the variation_id as product_id. If get_product shows options (e.g. "בחירת ספלים" with min/max), pass the shopper\'s choices in options, keyed by the option id, each value a list of choice labels (or the text for a text field). The chat shows a confirmation once it is in the cart.',
+				'description' => 'Add one product to the shopper\'s cart from the chat, when they ask you to add it, say yes to adding it, or confirm their choice. Pass the choices in options, keyed by the option name (e.g. "צבע", "בחירת ספלים", "שם"), each value a choice label, a list of labels for a multi-choice option, or the text for a text field. Variations are found from the options. After it is in the cart the chat takes the shopper to checkout, unless go_to_checkout is false.',
 				'inputSchema' => array(
 					'type'       => 'object',
 					'properties' => array(
 						'product_id' => array( 'type' => 'integer' ),
 						'quantity'   => array( 'type' => 'integer' ),
-						'options'    => array( 'type' => 'object', 'description' => 'Option id => list of choice labels, or text' ),
+						'options'    => array( 'type' => 'object', 'description' => 'Option name => choice label, list of labels, or text' ),
+						'go_to_checkout' => array( 'type' => 'boolean', 'description' => 'Default true. False only if the shopper wants to keep shopping or add more items.' ),
 					),
 					'required'   => array( 'product_id' ),
 				),
@@ -247,6 +260,7 @@ class AISR_Tools {
 				'suggest_replies' => $this->suggest_replies( $input ),
 				'record_insight'  => $this->record_insight( $input ),
 				'add_to_cart'     => $this->add_to_cart( $input ),
+				'show_options'    => $this->show_options( $input ),
 				'offer_coupon'    => $this->offer_coupon( $input ),
 				'track_order'     => $this->track_order( $input ),
 				'request_human'   => $this->request_human( $input ),
@@ -380,41 +394,53 @@ class AISR_Tools {
 		if ( ! $base || 'publish' !== $base->get_status() ) {
 			return array( 'error' => 'not_found' );
 		}
-		if ( $p->is_type( 'variable' ) ) {
-			return array( 'error' => 'choose_variation', 'note' => 'Pass the variation_id of the option the shopper chose (get_product lists them).' );
-		}
 		if ( AISR_Knowledge::is_workshop( $base->get_id() ) ) {
 			return array( 'error' => 'workshop', 'note' => 'A workshop date is set with Mai on WhatsApp: use request_human.' );
 		}
-		if ( ! $p->is_purchasable() || ! $p->is_in_stock() ) {
-			return array( 'error' => 'unavailable' );
-		}
 		$qty    = max( 1, min( 20, (int) ( $in['quantity'] ?? 1 ) ) );
 		$given  = (array) ( $in['options'] ?? array() );
-		$opts   = $base->is_type( 'simple' ) && ( $given || ! AISR_Knowledge::quick_addable( $base ) ) ? AISR_Knowledge::product_options( $base ) : array( 'groups' => '', 'fields' => array() );
 		$fields = array();
 		$shown  = array();
-		$norm   = static fn( $s ) => trim( preg_replace( '/[\s\'"׳״`]+/u', ' ', mb_strtolower( (string) $s ) ) );
-		foreach ( $opts['fields'] as $f ) {
-			$val = $given[ $f['id'] ] ?? $given[ $f['label'] ] ?? null;
-			if ( null === $val ) {
-				foreach ( $given as $k => $v ) { // The model may key it by a shortened label.
-					if ( '' !== $norm( $k ) && false !== mb_strpos( $norm( $f['label'] ), $norm( $k ) ) ) {
-						$val = $v;
-						break;
-					}
+		$norm   = array( 'AISR_Knowledge', 'norm' );
+		$pick   = static function ( string $label, string $raw = '' ) use ( &$given, $norm ) {
+			foreach ( $given as $k => $v ) {
+				$nk = $norm( $k );
+				if ( '' !== $nk && ( $nk === $norm( $label ) || $k === $raw || false !== mb_strpos( $norm( $label ), $nk ) ) ) {
+					unset( $given[ $k ] );
+					return $v;
 				}
 			}
+			return null;
+		};
+		if ( $p->is_type( 'variable' ) ) {
+			$want = array();
+			foreach ( AISR_Knowledge::variation_attrs( $p ) as $at ) {
+				$val = $pick( $at['label'], $at['key'] );
+				$val = is_array( $val ) ? reset( $val ) : $val;
+				$hit = null === $val ? null : AISR_Knowledge::match_choice( $val, $at['options'] );
+				if ( ! $hit ) {
+					return array( 'error' => null === $val ? 'missing_options' : 'invalid_choice', 'option' => $at['label'], 'choices' => wp_list_pluck( $at['options'], 'label' ), 'note' => 'Ask the shopper, or call show_options so they can pick in the chat.' );
+				}
+				$want[ $at['key'] ] = $hit['value'];
+				$shown[]            = $at['label'] . ': ' . $hit['label'];
+			}
+			$vid = ( new WC_Product_Data_Store_CPT() )->find_matching_product_variation( $p, $want );
+			$vp  = $vid ? wc_get_product( $vid ) : null;
+			if ( ! $vp ) {
+				return array( 'error' => 'unavailable_combination', 'chosen' => $shown );
+			}
+			$p = $vp;
+		}
+		if ( ! $p->is_purchasable() || ! $p->is_in_stock() ) {
+			return array( 'error' => 'unavailable', 'chosen' => $shown, 'note' => 'This choice is out of stock: suggest another one (show_options) or the waitlist.' );
+		}
+		$opts   = ! $base->is_type( 'simple' ) || $given || ! AISR_Knowledge::quick_addable( $base ) ? AISR_Knowledge::product_options( $base ) : array( 'groups' => '', 'fields' => array() );
+		foreach ( $opts['fields'] as $f ) {
+			$val = $pick( $f['label'], $f['id'] );
 			if ( ! empty( $f['choices'] ) ) {
 				$picked = array();
 				foreach ( array_filter( array_map( 'strval', (array) $val ), 'strlen' ) as $want ) {
-					$hit = null;
-					foreach ( $f['choices'] as $c ) {
-						if ( $want === $c['value'] || $norm( $want ) === $norm( $c['label'] ) ) {
-							$hit = $c;
-							break;
-						}
-					}
+					$hit = AISR_Knowledge::match_choice( $want, $f['choices'] );
 					if ( ! $hit ) {
 						return array( 'error' => 'invalid_choice', 'option' => $f['label'], 'given' => $want, 'choices' => wp_list_pluck( $f['choices'], 'label' ) );
 					}
@@ -449,8 +475,47 @@ class AISR_Tools {
 			'name'    => $base->get_name(),
 			'summary' => implode( ' · ', $shown ),
 			'url'     => get_permalink( $base->get_id() ),
+			'checkout' => ! isset( $in['go_to_checkout'] ) || ! empty( $in['go_to_checkout'] ),
 		);
-		return array( 'queued' => true, 'choices' => $shown, 'note' => 'The chat adds it to the cart now and shows a confirmation under your message. Say in one short sentence that you are adding it (e.g. "מוסיפה לסל"), with the choices.' );
+		$go = end( $this->actions )['checkout'];
+		return array( 'queued' => true, 'choices' => $shown, 'note' => 'The chat adds it to the cart now and shows a confirmation under your message' . ( $go ? ', then takes the shopper to checkout' : '' ) . '. Say in one short sentence that you are adding it, with the choices' . ( $go ? ', and that it moves to payment' : '' ) . '. Do not ask another question.' );
+	}
+
+	/** A picker in the chat for colors, sizes and option fields, with the recommendation preselected. */
+	private function show_options( array $in ): array {
+		$p = wc_get_product( absint( $in['product_id'] ?? 0 ) );
+		if ( $p && $p->is_type( 'variation' ) ) {
+			$p = wc_get_product( $p->get_parent_id() );
+		}
+		if ( ! $p || 'publish' !== $p->get_status() ) {
+			return array( 'error' => 'not_found' );
+		}
+		if ( AISR_Knowledge::is_workshop( $p->get_id() ) ) {
+			return array( 'error' => 'workshop', 'note' => 'A workshop date is set with Mai on WhatsApp: use request_human.' );
+		}
+		if ( ! $p->is_in_stock() && ! $p->is_type( 'variable' ) ) {
+			return array( 'error' => 'unavailable' );
+		}
+		$sheet = AISR_Knowledge::choice_sheet( $p, (array) ( $in['preselect'] ?? array() ) );
+		if ( ! $sheet['attrs'] && ! $sheet['fields'] ) {
+			return array( 'error' => 'no_options', 'note' => 'Nothing to choose: call add_to_cart directly when the shopper wants it.' );
+		}
+		$unmatched = $sheet['unmatched'];
+		unset( $sheet['unmatched'] );
+		if ( $unmatched ) {
+			$names = array();
+			foreach ( $sheet['attrs'] as $at ) {
+				$names[ $at['label'] ] = wp_list_pluck( $at['options'], 'label' );
+			}
+			foreach ( $sheet['fields'] as $f ) {
+				if ( ! empty( $f['choices'] ) ) {
+					$names[ $f['label'] ] = wp_list_pluck( $f['choices'], 'label' );
+				}
+			}
+			return array( 'error' => 'preselect_not_found', 'not_found' => $unmatched, 'choices' => $names, 'note' => 'Call show_options again using these exact choice labels.' );
+		}
+		$this->actions[] = array( 'type' => 'options', 'sheet' => $sheet );
+		return array( 'shown' => true, 'preselected' => count( (array) $sheet['pre'] ), 'note' => 'The picker is under your message, with your recommendation selected. Say in one or two short sentences what you selected and why, and that they can change it and press "זה מה שאני רוצה". Their choice comes back as a message starting with "בחרתי".' );
 	}
 
 	private function record_insight( array $in ): array {

@@ -447,7 +447,7 @@ class AISR_Knowledge {
 	 */
 	public static function product_options( WC_Product $p ): array {
 		$mod = $p->get_date_modified();
-		$key = 'aisr_opts_' . $p->get_id() . '_' . ( $mod ? $mod->getTimestamp() : 0 );
+		$key = 'aisr_opts2_' . $p->get_id() . '_' . ( $mod ? $mod->getTimestamp() : 0 );
 		$hit = get_transient( $key );
 		if ( is_array( $hit ) ) {
 			return $hit;
@@ -503,10 +503,20 @@ class AISR_Knowledge {
 			if ( preg_match( '/data-maxc="(\d+)"/', $part, $mx ) ) {
 				$field['max'] = (int) $mx[1];
 			}
-			preg_match_all( '/value="([^"]+)"[^>]*data-wapf-label="([^"]*)"/', $part, $cm, PREG_SET_ORDER );
+			preg_match_all( '/<(?:input|option)\b([^>]*\bdata-wapf-label="[^"]*"[^>]*)>(\s*<img[^>]*?\bsrc="([^"]+)")?/', $part, $cm, PREG_SET_ORDER );
 			$choices = array();
 			foreach ( $cm as $c ) {
-				$choices[ $c[1] ] = array( 'value' => $c[1], 'label' => html_entity_decode( $c[2], ENT_QUOTES ) );
+				if ( ! preg_match( '/\bvalue="([^"]+)"/', $c[1], $cv ) || ! preg_match( '/data-wapf-label="([^"]*)"/', $c[1], $cl ) ) {
+					continue;
+				}
+				$choice = array( 'value' => $cv[1], 'label' => html_entity_decode( $cl[1], ENT_QUOTES ) );
+				if ( ! empty( $c[3] ) ) {
+					$choice['image'] = esc_url_raw( $c[3] );
+				}
+				if ( preg_match( '/data-wapf-price="([\d.]+)"/', $c[1], $cp ) && (float) $cp[1] > 0 ) {
+					$choice['price'] = (float) $cp[1];
+				}
+				$choices[ $cv[1] ] = $choice;
 			}
 			if ( $choices ) {
 				$field['choices'] = array_values( $choices );
@@ -516,6 +526,146 @@ class AISR_Knowledge {
 		}
 		set_transient( $key, $out, 12 * HOUR_IN_SECONDS );
 		return $out;
+	}
+
+	/** Loose comparison for names the model or shopper wrote ("פוג'י" = "פוגי"). */
+	public static function norm( $s ): string {
+		return trim( (string) preg_replace( '/[\s\'"׳״`:*]+/u', ' ', mb_strtolower( rawurldecode( (string) $s ) ) ) );
+	}
+
+	/** The choice a loosely written label means: exact first, then the only choice that contains it (or it contains). */
+	public static function match_choice( $want, array $choices ): ?array {
+		$w = self::norm( $want );
+		if ( '' === $w ) {
+			return null;
+		}
+		$near = array();
+		foreach ( $choices as $c ) {
+			$l = self::norm( $c['label'] );
+			if ( $w === $l || (string) $want === (string) $c['value'] ) {
+				return $c;
+			}
+			if ( false !== mb_strpos( $l, $w ) || false !== mb_strpos( $w, $l ) ) {
+				$near[] = $c;
+			}
+		}
+		return 1 === count( $near ) ? $near[0] : null;
+	}
+
+	/** Attribute options of a variable product: [ key, label, options[ value, label ] ]. */
+	public static function variation_attrs( WC_Product $p ): array {
+		$out = array();
+		foreach ( $p->get_variation_attributes() as $name => $values ) {
+			$opts = array();
+			foreach ( $values as $v ) {
+				$label = $v;
+				if ( taxonomy_exists( $name ) ) {
+					$t     = get_term_by( 'slug', $v, $name );
+					$label = $t ? $t->name : rawurldecode( $v );
+				}
+				$opts[] = array( 'value' => (string) $v, 'label' => (string) $label );
+			}
+			$out[] = array( 'key' => 'attribute_' . sanitize_title( $name ), 'label' => wc_attribute_label( $name, $p ), 'options' => $opts );
+		}
+		return $out;
+	}
+
+	/**
+	 * Everything the chat's picker needs to choose a product's color, size or other options:
+	 * variation attributes with stock, price and image, plus option fields (e.g. pick 3 cups, a name).
+	 * $pre maps an attribute/field label to the recommended choice label(s), shown preselected.
+	 */
+	public static function choice_sheet( WC_Product $p, array $pre = array() ): array {
+		$sheet = array(
+			'id'         => $p->get_id(),
+			'name'       => $p->get_name(),
+			'image'      => wp_get_attachment_image_url( $p->get_image_id(), 'woocommerce_thumbnail' ) ?: wc_placeholder_img_src(),
+			'price'      => self::plain_price( $p ),
+			'mto'        => 'onbackorder' === $p->get_stock_status(),
+			'attrs'      => array(),
+			'variations' => array(),
+			'fields'     => array(),
+			'groups'     => '',
+			'pre'        => new stdClass(),
+			'unmatched'  => array(),
+		);
+		$picked = array();
+		$find   = static function ( string $label ) use ( $pre ) {
+			foreach ( $pre as $k => $v ) {
+				if ( '' !== self::norm( $k ) && ( self::norm( $k ) === self::norm( $label ) || false !== mb_strpos( self::norm( $label ), self::norm( $k ) ) ) ) {
+					return $v;
+				}
+			}
+			return null;
+		};
+		if ( $p->is_type( 'variable' ) ) {
+			$sheet['attrs'] = self::variation_attrs( $p );
+			foreach ( array_slice( $p->get_available_variations(), 0, 60 ) as $v ) {
+				$vp = wc_get_product( $v['variation_id'] );
+				if ( ! $vp ) {
+					continue;
+				}
+				$sheet['variations'][] = array(
+					'id'         => $v['variation_id'],
+					'attrs'      => (object) $v['attributes'],
+					'price_text' => self::plain_price( $vp ),
+					'ok'         => (bool) $v['is_in_stock'] && (bool) $v['is_purchasable'],
+					'mto'        => 'onbackorder' === $vp->get_stock_status(),
+					'image'      => (string) ( $v['image']['thumb_src'] ?? '' ),
+				);
+			}
+			foreach ( $sheet['attrs'] as &$at ) {
+				foreach ( $at['options'] as &$o ) {
+					foreach ( $sheet['variations'] as $vv ) {
+						$va = (array) $vv['attrs'];
+						if ( ( $va[ $at['key'] ] ?? '' ) === $o['value'] && $vv['image'] ) {
+							$o['image'] = $vv['image'];
+							break;
+						}
+					}
+				}
+				unset( $o );
+				$want = $find( $at['label'] );
+				if ( null !== $want ) {
+					$hit = self::match_choice( is_array( $want ) ? reset( $want ) : $want, $at['options'] );
+					if ( $hit ) {
+						$picked[ $at['key'] ] = $hit['value'];
+					} else {
+						$sheet['unmatched'][] = $at['label'] . ': ' . ( is_array( $want ) ? implode( ', ', $want ) : $want );
+					}
+				}
+			}
+			unset( $at );
+		}
+		if ( ! $p->is_type( 'simple' ) || ! self::quick_addable( $p ) ) {
+			$opts            = self::product_options( $p );
+			$sheet['fields'] = $opts['fields'];
+			$sheet['groups'] = $opts['groups'];
+			foreach ( $opts['fields'] as $f ) {
+				$want = $find( $f['label'] );
+				if ( null === $want ) {
+					continue;
+				}
+				if ( ! empty( $f['choices'] ) ) {
+					$vals = array();
+					foreach ( (array) $want as $w ) {
+						$hit = self::match_choice( $w, $f['choices'] );
+						if ( $hit ) {
+							$vals[] = $hit['value'];
+						} else {
+							$sheet['unmatched'][] = $f['label'] . ': ' . $w;
+						}
+					}
+					if ( $vals ) {
+						$picked[ $f['id'] ] = array_values( array_unique( $vals ) );
+					}
+				} else {
+					$picked[ $f['id'] ] = mb_substr( sanitize_text_field( is_array( $want ) ? implode( ' ', $want ) : (string) $want ), 0, 60 );
+				}
+			}
+		}
+		$sheet['pre'] = (object) $picked;
+		return $sheet;
 	}
 
 	public static function product_card( WC_Product $p ): array {
@@ -584,7 +734,7 @@ class AISR_Knowledge {
 		}
 		if ( $full ) {
 			$d['description'] = self::clean_text( $p->get_description(), 2500 );
-			if ( $p->is_type( 'simple' ) && ! self::quick_addable( $p ) ) {
+			if ( ! $p->is_type( 'simple' ) || ! self::quick_addable( $p ) ) {
 				$opts = self::product_options( $p );
 				if ( $opts['fields'] ) {
 					$d['options'] = $opts['fields']; // Choices the shopper makes on the product page; add_to_cart takes them too.

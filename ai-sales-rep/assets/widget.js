@@ -266,8 +266,12 @@
 				}).catch(function () { btn.disabled = false; btn.textContent = 'לעמוד המוצר'; btn.onclick = function () { location.href = p.url; }; });
 			});
 		} else {
-			btn.textContent = p.in_stock ? 'לבחירת אפשרויות' : 'לעמוד המוצר';
-			btn.addEventListener('click', function () { track('clicked', { trigger: 'card' }); location.href = p.url; });
+			btn.textContent = p.in_stock && !p.workshop ? 'לבחירת צבע ואפשרויות' : 'לעמוד המוצר';
+			btn.addEventListener('click', function () {
+				track('clicked', { trigger: 'card' });
+				if (p.in_stock && !p.workshop && !busy) { sendMessage('אני רוצה לבחור צבע ואפשרויות ל' + p.name); return; }
+				location.href = p.url;
+			});
 		}
 		body.appendChild(btn);
 		c.appendChild(body);
@@ -286,6 +290,99 @@
 		a.target = '_blank'; a.rel = 'noopener';
 		a.addEventListener('click', function () { track('clicked', { trigger: 'save_whatsapp' }); });
 		return a;
+	}
+	// Choose color, size and option fields in the chat; the choice goes back to the bot as a message.
+	function picker(s) {
+		var wrap = el('div', 'aisr-action'), box = el('div', 'aisr-picker');
+		var top = el('div', 'aisr-pk-top'), im = el('img'); im.src = s.image; im.alt = ''; top.appendChild(im);
+		var tt = el('div', 'aisr-pk-title'); tt.appendChild(el('div', 'aisr-pk-name', s.name));
+		var pr = el('div', 'aisr-pk-price', s.price + (s.mto ? ' · בהזמנה מראש' : '')); tt.appendChild(pr);
+		top.appendChild(tt); box.appendChild(top);
+		var pre = s.pre || {}, sel = {}, fsel = {};
+		(s.attrs || []).forEach(function (at) { sel[at.key] = pre[at.key] || (at.options.length === 1 ? at.options[0].value : ''); });
+		(s.fields || []).forEach(function (f) { var v = pre[f.id]; fsel[f.id] = f.choices ? (v ? [].concat(v) : []) : (v || ''); });
+		function matches(v, skip) { return Object.keys(sel).every(function (k) { var x = v.attrs[k]; return k === skip || !sel[k] || !x || x === sel[k]; }); }
+		function variation() { if (!(s.attrs || []).length) return null; return (s.variations || []).filter(function (v) { return Object.keys(sel).every(function (k) { var x = v.attrs[k]; return sel[k] && (!x || x === sel[k]); }); })[0] || null; }
+		function avail(key, val) { return (s.variations || []).some(function (v) { var x = v.attrs[key]; return v.ok && (!x || x === val) && matches(v, key); }); }
+		function clean(l) { return String(l || '').replace(/[:*]/g, '').trim(); }
+		var rows = el('div', 'aisr-pk-rows'); box.appendChild(rows);
+		var go = el('button', 'aisr-btn aisr-pk-go', 'זה מה שאני רוצה'); go.type = 'button';
+		function opt(label, image, on, off, onClick) {
+			var b = el('button', 'aisr-pk-opt' + (on ? ' on' : '') + (off ? ' off' : '')); b.type = 'button';
+			if (image) { var i = el('img'); i.src = image; i.alt = ''; i.loading = 'lazy'; b.appendChild(i); }
+			b.appendChild(el('span', null, label));
+			if (off) b.setAttribute('aria-disabled', 'true');
+			b.setAttribute('aria-pressed', on ? 'true' : 'false');
+			b.addEventListener('click', function () { if (!off && !box.classList.contains('done')) onClick(); });
+			return b;
+		}
+		function check() {
+			var ok = true, v = variation();
+			(s.attrs || []).forEach(function (at) { if (!sel[at.key]) ok = false; });
+			if ((s.attrs || []).length) {
+				if (!v || !v.ok) ok = false;
+				if (v) { pr.textContent = (v.price_text || s.price) + (v.mto ? ' · בהזמנה מראש' : '') + (v.ok ? '' : ' · לא זמין כרגע'); if (v.image) im.src = v.image; }
+			}
+			(s.fields || []).forEach(function (f) {
+				if (f.choices) { var n = fsel[f.id].length, mn = f.min != null ? f.min : (f.required ? 1 : 0); if (n < mn || (f.max && n > f.max)) ok = false; }
+				else if (f.required && !String(fsel[f.id]).trim()) ok = false;
+			});
+			go.disabled = !ok || box.classList.contains('done');
+		}
+		function render() {
+			rows.innerHTML = '';
+			(s.attrs || []).forEach(function (at) {
+				var r = el('div', 'aisr-pk-row'); r.appendChild(el('div', 'aisr-pk-label', clean(at.label)));
+				var os = el('div', 'aisr-pk-opts');
+				at.options.forEach(function (o) {
+					os.appendChild(opt(o.label, o.image, sel[at.key] === o.value, !avail(at.key, o.value), function () { sel[at.key] = o.value; render(); }));
+				});
+				r.appendChild(os); rows.appendChild(r);
+			});
+			(s.fields || []).forEach(function (f) {
+				var r = el('div', 'aisr-pk-row');
+				var hint = '';
+				if (f.choices && f.max > 1) hint = (f.min === f.max ? ' · לבחור ' + f.min : ' · עד ' + f.max) + ' (נבחרו ' + fsel[f.id].length + ')';
+				r.appendChild(el('div', 'aisr-pk-label', clean(f.label) + (f.required ? ' *' : '') + hint));
+				if (f.choices) {
+					var os = el('div', 'aisr-pk-opts');
+					f.choices.forEach(function (c) {
+						var on = fsel[f.id].indexOf(c.value) > -1;
+						os.appendChild(opt(c.label + (c.price ? ' (+' + c.price + ' ₪)' : ''), c.image, on, false, function () {
+							var arr = fsel[f.id], ix = arr.indexOf(c.value);
+							if (!f.multi) fsel[f.id] = ix > -1 && !f.required ? [] : [c.value];
+							else if (ix > -1) arr.splice(ix, 1);
+							else { if (f.max && arr.length >= f.max) arr.shift(); arr.push(c.value); }
+							render();
+						}));
+					});
+					r.appendChild(os);
+				} else {
+					var inp = el('input', 'aisr-pk-text'); inp.type = 'text'; inp.maxLength = 60; inp.value = fsel[f.id] || '';
+					inp.placeholder = clean(f.label); inp.setAttribute('aria-label', clean(f.label));
+					inp.addEventListener('input', function () { fsel[f.id] = inp.value; check(); });
+					r.appendChild(inp);
+				}
+				rows.appendChild(r);
+			});
+			check();
+		}
+		go.addEventListener('click', function () {
+			if (go.disabled || busy) return;
+			var parts = [];
+			(s.attrs || []).forEach(function (at) { var o = at.options.filter(function (x) { return x.value === sel[at.key]; })[0]; if (o) parts.push(clean(at.label) + ': ' + o.label); });
+			(s.fields || []).forEach(function (f) {
+				if (f.choices) { var labs = f.choices.filter(function (c) { return fsel[f.id].indexOf(c.value) > -1; }).map(function (c) { return c.label; }); if (labs.length) parts.push(clean(f.label) + ': ' + labs.join(', ')); }
+				else if (String(fsel[f.id]).trim()) parts.push(clean(f.label) + ': ' + String(fsel[f.id]).trim());
+			});
+			box.classList.add('done'); go.disabled = true; go.textContent = 'נבחר ✓';
+			track('clicked', { trigger: 'picker' });
+			sendMessage('בחרתי ב' + s.name + ': ' + parts.join(' · '));
+		});
+		box.appendChild(go);
+		render();
+		wrap.appendChild(box);
+		return wrap;
 	}
 	function action(a) {
 		var wrap = el('div', 'aisr-action');
@@ -328,13 +425,23 @@
 			wrap.appendChild(rv);
 			return wrap;
 		}
+		if (a.type === 'options') { return picker(a.sheet); }
 		if (a.type === 'add_to_cart') {
 			var box2 = el('div', 'aisr-added', 'מוסיף לסל…');
 			wrap.appendChild(box2);
 			wcAjaxAdd(a).then(function () {
-				box2.textContent = '✓ נוסף לסל: ' + a.name + (a.summary ? ' · ' + a.summary : '');
-				if (C.cartUrl) { var go = el('a', 'aisr-btn', 'למעבר לתשלום'); go.href = C.cartUrl; wrap.appendChild(go); }
+				var done = '✓ נוסף לסל: ' + a.name + (a.summary ? ' · ' + a.summary : '');
+				box2.textContent = done;
 				refreshMiniCart(); track('add_to_cart', { trigger: 'chat' }); set(SS, 'added', true);
+				if (!C.cartUrl) return;
+				var go = el('a', 'aisr-btn', 'למעבר לתשלום'); go.href = C.cartUrl;
+				if (a.checkout) {
+					box2.textContent = done + ' · עוברים לתשלום…';
+					var stay = el('button', 'aisr-pk-stay', 'להישאר באתר'); stay.type = 'button';
+					var timer = setTimeout(function () { location.href = C.cartUrl; }, 3000);
+					stay.addEventListener('click', function () { clearTimeout(timer); box2.textContent = done; stay.remove(); wrap.appendChild(go); });
+					wrap.appendChild(stay);
+				} else { wrap.appendChild(go); }
 			}).catch(function () {
 				box2.textContent = 'לא הצלחתי להוסיף מכאן. אפשר להוסיף בעמוד המוצר.';
 				var pg = el('a', 'aisr-btn', 'לעמוד המוצר'); pg.href = a.url; wrap.appendChild(pg);
