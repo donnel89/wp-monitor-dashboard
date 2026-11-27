@@ -224,3 +224,11 @@
 .aisr-root .aisr-gift { border: 1px dashed var(--aisr-color); border-radius: 12px; padding: 8px 12px; background: #fff; }
 .aisr-root .aisr-gift-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
 .aisr-root .aisr-gift-text { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+
+.aisr-root .aisr-addon { border: 1px solid #e3e3e3; border-radius: 12px; padding: 8px 10px; background: #fffdf6; }
+.aisr-root .aisr-addon-title { font-size: 12px; font-weight: 700; color: #8a6d1d; margin-bottom: 6px; }
+.aisr-root .aisr-addon-row { display: flex; gap: 10px; align-items: center; }
+.aisr-root .aisr-addon-row img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex: none; }
+.aisr-root .aisr-addon-name { font-weight: 600; font-size: 14px; color: var(--aisr-ink); text-decoration: none; }
+.aisr-root .aisr-addon-why { font-size: 12px; color: #555; margin-top: 2px; line-height: 1.35; }
+.aisr-root button.aisr-addon-btn { width: 100% !important; margin-top: 8px; background: var(--aisr-color) !important; color: #fff !important; border: 0 !important; }

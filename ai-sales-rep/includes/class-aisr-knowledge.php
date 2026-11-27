@@ -755,6 +755,11 @@ class AISR_Knowledge {
 			}
 			$d['recent_reviews'] = self::recent_reviews( $p->get_id() );
 			$d['related_ids']    = array_slice( wc_get_related_products( $p->get_id(), 5 ), 0, 5 );
+			$cart                = AISR_Addons::cart_state();
+			$goes                = AISR_Addons::for_product( $p->get_id(), array( 'cart_ids' => $cart['ids'], 'cart_total' => $cart['total'] + (float) $p->get_price() ) );
+			if ( $goes ) {
+				$d['goes_well_with'] = array_map( static fn( $g ) => array( 'id' => $g['id'], 'name' => $g['name'], 'price' => $g['price'], 'why' => $g['reason'] ), $goes );
+			}
 			$d['upsell_ids']     = $p->get_upsell_ids();
 			$d['cross_sell_ids'] = $p->get_cross_sell_ids();
 		}

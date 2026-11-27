@@ -291,6 +291,27 @@
 		a.addEventListener('click', function () { track('clicked', { trigger: 'save_whatsapp' }); });
 		return a;
 	}
+	// One smart add-on under the add-to-cart confirmation, added in one tap.
+	function addonCard(p, onAdded, onTouch) {
+		var box = el('div', 'aisr-addon');
+		box.appendChild(el('div', 'aisr-addon-title', 'מתאים לזה'));
+		var row = el('div', 'aisr-addon-row');
+		var img = el('img'); img.src = p.image; img.alt = ''; img.loading = 'lazy'; row.appendChild(img);
+		var info = el('div', 'aisr-addon-info');
+		var nm = el('a', 'aisr-addon-name', p.name); nm.href = p.url; info.appendChild(nm);
+		info.appendChild(el('div', 'aisr-addon-why', p.reason + (p.made_to_order ? ' · בהזמנה מראש' : '')));
+		row.appendChild(info); box.appendChild(row);
+		var b = el('button', 'aisr-btn aisr-addon-btn', 'להוסיף גם · ' + p.price); b.type = 'button';
+		b.addEventListener('click', function () {
+			b.disabled = true; b.textContent = 'מוסיף…';
+			storeApi('/cart/add-item', { id: p.id, quantity: 1 }).then(function () {
+				b.textContent = 'נוסף לסל ✓'; refreshMiniCart(); track('add_to_cart', { trigger: 'addon' }); onAdded();
+			}).catch(function () { b.disabled = false; b.textContent = 'לעמוד המוצר'; b.onclick = function () { location.href = p.url; }; });
+		});
+		box.appendChild(b);
+		box.addEventListener('pointerdown', function (e) { if (e.target !== b) onTouch(); });
+		return box;
+	}
 	// Choose color, size and option fields in the chat; the choice goes back to the bot as a message.
 	function picker(s) {
 		var wrap = el('div', 'aisr-action'), box = el('div', 'aisr-picker');
@@ -442,11 +463,22 @@
 				refreshMiniCart(); track('add_to_cart', { trigger: 'chat' }); set(SS, 'added', true);
 				if (!C.cartUrl) return;
 				var go = el('a', 'aisr-btn', 'למעבר לתשלום'); go.href = C.cartUrl;
+				var timer = null, tick = null;
+				function stopTimer() { if (timer) { clearTimeout(timer); clearInterval(tick); timer = null; box2.textContent = done; if (stay) stay.remove(); if (!go.parentNode) wrap.appendChild(go); } }
+				var stay = null;
+				if (a.addon) {
+					wrap.appendChild(addonCard(a.addon, function () { // Added the add-on: straight on to checkout.
+						if (a.checkout) { if (timer) { clearTimeout(timer); clearInterval(tick); } setTimeout(function () { location.href = C.cartUrl; }, 1200); }
+					}, stopTimer));
+					track('shown', { trigger: 'addon' });
+				}
 				if (a.checkout) {
-					box2.textContent = done + ' · עוברים לתשלום…';
-					var stay = el('button', 'aisr-pk-stay', 'להישאר באתר'); stay.type = 'button';
-					var timer = setTimeout(function () { location.href = C.cartUrl; }, 3000);
-					stay.addEventListener('click', function () { clearTimeout(timer); box2.textContent = done; stay.remove(); wrap.appendChild(go); });
+					var left = a.addon ? 8 : 3;
+					box2.textContent = done + ' · עוברים לתשלום בעוד ' + left + '…';
+					stay = el('button', 'aisr-pk-stay', 'להישאר באתר'); stay.type = 'button';
+					timer = setTimeout(function () { location.href = C.cartUrl; }, left * 1000);
+					tick = setInterval(function () { left = Math.max(0, left - 1); if (timer) box2.textContent = done + ' · עוברים לתשלום בעוד ' + left + '…'; }, 1000);
+					stay.addEventListener('click', stopTimer);
 					wrap.appendChild(stay);
 				} else { wrap.appendChild(go); }
 			}).catch(function () {

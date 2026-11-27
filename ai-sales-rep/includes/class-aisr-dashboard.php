@@ -108,7 +108,7 @@ class AISR_Dashboard {
 				$questions[] = $q;
 			}
 		}
-		foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT trigger_key, type, COUNT(*) n FROM $events WHERE type IN ('shown','dismissed') AND created_at >= %s GROUP BY trigger_key, type", $since ), ARRAY_A ) as $r ) { // phpcs:ignore WordPress.DB
+		foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT trigger_key, type, COUNT(*) n FROM $events WHERE type IN ('shown','dismissed') AND trigger_key <> 'addon' AND created_at >= %s GROUP BY trigger_key, type", $since ), ARRAY_A ) as $r ) { // phpcs:ignore WordPress.DB
 			$t                         = $r['trigger_key'] ?: 'manual';
 			$triggers[ $t ]            = $triggers[ $t ] ?? array( 'shown' => 0, 'dismissed' => 0, 'replied' => 0, 'revenue' => 0.0 );
 			$triggers[ $t ][ $r['type'] ] = (int) $r['n'];
@@ -137,6 +137,7 @@ class AISR_Dashboard {
 			'handoffs'      => $handoffs,
 			'triggers'      => $triggers,
 			'insight'       => $insight,
+			'addon'         => array_column( $wpdb->get_results( $wpdb->prepare( "SELECT type, COUNT(*) n FROM $events WHERE trigger_key = 'addon' AND created_at >= %s GROUP BY type", $since ), ARRAY_A ), 'n', 'type' ), // phpcs:ignore WordPress.DB
 			'questions'     => array_slice( array_reverse( $questions ), 0, 20 ),
 			'leads'         => $leads,
 		);
@@ -224,6 +225,9 @@ class AISR_Dashboard {
 						<tr><td>הכי חשוב: <?php echo esc_html( $pri[ $k ] ?? $k ); ?></td><td><?php echo esc_html( $n ); ?></td></tr>
 					<?php endforeach; ?>
 					<tr><td>הזכירו מתחרה או מחיר אחר</td><td><?php echo esc_html( $in['competitor'] ); ?></td></tr>
+					<?php $ad = $st['addon'] ?? array(); if ( ! empty( $ad['shown'] ) ) : ?>
+						<tr><td>תוספת חכמה אחרי הוספה לסל</td><td><?php echo esc_html( (int) $ad['shown'] . ' הוצגו · ' . (int) ( $ad['add_to_cart'] ?? 0 ) . ' נוספו (' . self::pct( (int) ( $ad['add_to_cart'] ?? 0 ) / (int) $ad['shown'] ) . ')' ); ?></td></tr>
+					<?php endif; ?>
 					<?php foreach ( array( 'heart' => 'קונים מהלב', 'head' => 'קונים מהראש', 'mixed' => 'מעורב' ) as $mk => $ml ) : ?>
 						<?php if ( ! empty( $in['mode'][ $mk ] ) ) : $mv = $in['mode'][ $mk ]; ?>
 							<tr><td><?php echo esc_html( $ml ); ?></td><td><?php echo esc_html( $mv['n'] . ' שיחות · ' . $mv['orders'] . ' הזמנות (' . self::pct( $mv['orders'] / $mv['n'] ) . ') · ' . self::money( $mv['revenue'] ) ); ?></td></tr>

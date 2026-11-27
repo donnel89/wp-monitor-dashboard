@@ -488,6 +488,18 @@ class AISR_Tools {
 			'checkout' => ! isset( $in['go_to_checkout'] ) || ! empty( $in['go_to_checkout'] ),
 			'gift'     => '' !== AISR_Growth::pending_gift_message( (string) ( $this->conv['uuid'] ?? '' ) ),
 		);
+		// One smart add-on under the confirmation: what fits this item, by real signals (see AISR_Addons).
+		$cart  = AISR_Addons::cart_state();
+		$ids   = $cart['ids'];
+		$total = $cart['total'];
+		if ( ! in_array( $base->get_id(), $ids, true ) ) {
+			$ids[]  = $base->get_id();
+			$total += (float) wc_get_price_to_display( $p ) * $qty;
+		}
+		$addon = AISR_Addons::for_product( $base->get_id(), array( 'cart_ids' => $ids, 'cart_total' => $total, 'main_price' => (float) wc_get_price_to_display( $p ) ), 1 );
+		if ( $addon ) {
+			$this->actions[ count( $this->actions ) - 1 ]['addon'] = $addon[0];
+		}
 		$go = end( $this->actions )['checkout'];
 		return array( 'queued' => true, 'choices' => $shown, 'note' => 'The chat adds it to the cart now and shows a confirmation under your message' . ( $go ? ', then takes the shopper to checkout' : '' ) . '. Say in one short sentence that you are adding it, with the choices' . ( $go ? ', and that it moves to payment' : '' ) . '. Do not ask another question.' );
 	}
