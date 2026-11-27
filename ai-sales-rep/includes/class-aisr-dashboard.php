@@ -148,7 +148,7 @@ class AISR_Dashboard {
 		$days   = (int) ( $_GET['days'] ?? 30 ); // phpcs:ignore WordPress.Security.NonceVerification
 		$days   = in_array( $days, array( 7, 30, 90 ), true ) ? $days : 30;
 		$st     = self::stats( $days );
-		$labels = AISR_Settings::trigger_labels() + array( 'manual' => 'הגולש פתח בעצמו' );
+		$labels = AISR_Settings::trigger_labels() + array( 'manual' => 'הגולש פתח בעצמו', 'workshop' => 'עמוד סדנה: הזמנה לחוויה', 'workshop_exit' => 'עמוד סדנה: לפני שעוזבים' );
 		$pri    = array( 'price' => 'מחיר', 'quality' => 'איכות', 'design' => 'עיצוב', 'fast_shipping' => 'משלוח מהיר', 'other' => 'אחר' );
 		$usd    = static fn( float $v ): string => '$' . number_format( $v, 2 );
 		$state  = AISR_Claude::budget_state();

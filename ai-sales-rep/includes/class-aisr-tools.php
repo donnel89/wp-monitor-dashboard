@@ -485,7 +485,8 @@ class AISR_Tools {
 
 		if ( 'whatsapp' === $s['handoff_channel'] && $s['handoff_whatsapp'] ) {
 			$url             = 'https://wa.me/' . preg_replace( '/\D/', '', $s['handoff_whatsapp'] ) . '?text=' . rawurlencode( $summary );
-			$this->actions[] = array( 'type' => 'whatsapp', 'url' => $url, 'label' => 'המשך בוואטסאפ' );
+			$ws              = AISR_Knowledge::is_workshop( (int) ( $this->page['product_id'] ?? 0 ) ) || preg_match( '/סדנ/u', $summary );
+			$this->actions[] = array( 'type' => 'whatsapp', 'url' => $url, 'label' => $ws ? 'לתאם מועד עם מאי בוואטסאפ' : 'המשך בוואטסאפ' );
 			return array(
 				'channel'    => 'whatsapp',
 				'open_now'   => $open,

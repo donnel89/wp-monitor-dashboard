@@ -181,6 +181,17 @@ class AISR_Knowledge {
 		return $count;
 	}
 
+	/** A workshop is an experience in the studio, not a shipped item: no stock, holiday shipping or card dates. */
+	public static function is_workshop( int $product_id ): bool {
+		$p = $product_id ? wc_get_product( $product_id ) : null;
+		if ( ! $p ) {
+			return false;
+		}
+		$pid  = $p->get_parent_id() ?: $p->get_id();
+		$cats = implode( ' ', wp_list_pluck( get_the_terms( $pid, 'product_cat' ) ?: array(), 'name' ) );
+		return (bool) preg_match( '/סדנ|workshop/ui', $cats . ' ' . get_the_title( $pid ) );
+	}
+
 	/** The upcoming holiday from settings, while it is within 45 days: name, date, days left, what arrives in time. */
 	public static function holiday(): ?array {
 		$s = AISR_Settings::all();
@@ -318,6 +329,9 @@ class AISR_Knowledge {
 			$d = self::product_details( $pid );
 			if ( $d ) {
 				$lines[] = 'Product the visitor is viewing: ' . wp_json_encode( $d, JSON_UNESCAPED_UNICODE );
+				if ( ! empty( $d['workshop'] ) ) {
+					$lines[] = 'This is a WORKSHOP page (an experience in the studio, not a shipped item). Follow the workshop rules. Holiday order-by dates and stock do not apply to it. Call get_product for this id before you describe it or quote a price.';
+				}
 			}
 		}
 		if ( ! empty( $page['viewed'] ) && is_array( $page['viewed'] ) ) {
@@ -434,6 +448,7 @@ class AISR_Knowledge {
 			'made_to_order' => 'onbackorder' === $p->get_stock_status(),
 			'simple'      => self::quick_addable( $p ), // false -> the card opens the product page to choose options.
 			'rating'      => (float) $p->get_average_rating(),
+			'workshop'    => self::is_workshop( $p->get_id() ),
 		);
 	}
 
@@ -459,6 +474,10 @@ class AISR_Knowledge {
 			'review_count'  => $p->get_review_count(),
 			'url'           => urldecode( (string) get_permalink( $p->get_id() ) ),
 		);
+		if ( self::is_workshop( $p->get_id() ) ) {
+			$d['workshop'] = true; // An experience in the studio: the date is set with the owner on WhatsApp.
+			unset( $d['in_stock'], $d['made_to_order'], $d['stock_qty'] );
+		}
 		$sold = AISR_Growth::sales_30d()[ $p->get_id() ] ?? 0;
 		if ( $sold ) {
 			$d['sold_30d'] = $sold; // Real units from paid orders, for honest social proof.

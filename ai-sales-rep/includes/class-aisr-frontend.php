@@ -54,6 +54,7 @@ class AISR_Frontend {
 			'product_id' => $pid,
 			'made_to_order' => $pid && ( $p = wc_get_product( $pid ) ) && 'onbackorder' === $p->get_stock_status(),
 			'in_stock'      => $pid && ( $p = wc_get_product( $pid ) ) && 'instock' === $p->get_stock_status(),
+			'workshop'      => $pid ? AISR_Knowledge::is_workshop( $pid ) : (bool) preg_match( '/סדנ/u', (string) $category ),
 			'title'      => wp_strip_all_tags( wp_get_document_title() ),
 			'query'      => 'search' === $type ? mb_substr( get_search_query(), 0, 60 ) : '',
 			'search_empty' => 'search' === $type && ! have_posts(),
@@ -132,6 +133,9 @@ class AISR_Frontend {
 			'idle'               => array( 'צריכים עזרה למצוא משהו?', array( 'כן', 'מה הכי נמכר?', 'רק מסתכלים' ) ),
 			'holiday_deadline'   => array( '{product} במלאי 🙂 מזמינים עד {deadline} וזה מגיע לפני {holiday}. נשארה שאלה?', array( 'יש לי שאלה', 'מה משלים את זה?', 'רק מסתכלים' ) ),
 			'holiday_deadline_browse' => array( 'מחפשים מתנה ל{holiday}? 🙂 מה שבמלאי, מזמינים עד {deadline} ומגיע לפני החג. אעזור לבחור?', array( 'כן, עזרה במתנה', 'מתנה עד 200 ₪', 'רק מסתכלים' ) ),
+			'workshop'           => array( 'רוצים לשמוע איך נראית סדנה אצל מאי? 🙂 ספרו לי לכמה אנשים ולאיזו הזדמנות, ואעזור לבחור ולתאם איתה מועד.', array( 'זוג', 'משפחה או חברים', 'יום הולדת או אירוע', 'סדנה כמתנה' ) ),
+			'workshop_exit'      => array( 'רגע לפני שהולכים 🙂 רוצים לבדוק עם מאי אם יש תאריך פנוי? זה לא מחייב.', array( 'כן, לבדוק תאריך', 'יש לי שאלה', 'לא תודה' ) ),
+			'welcome_workshop'   => array( 'היי, אני {persona} מהסטודיו 🙂 אשמח לעזור לבחור סדנה ולתאם מועד עם מאי.', array( 'מה עושים בסדנה?', 'לכמה אנשים זה מתאים?', 'לבדוק תאריך עם מאי' ) ),
 			'welcome'            => array( 'היי, אני {persona} מהסטודיו 🙂 אפשר לשאול אותי כל דבר, או לבחור כאן:', array( '{gift_chip}', 'התאמת צבע לפי תמונה', 'מתי זה יגיע?' ) ),
 			'welcome_product'    => array( 'היי, אני {persona} מהסטודיו 🙂 אפשר לשאול על {product}, או לבחור כאן:', array( '{gift_chip}', 'התאמת צבע לפי תמונה', 'מתי זה יגיע?' ) ),
 			'returning'          => array( 'ברוכים השבים 🙂 ראיתי שבדקתם את {prev} בפעם הקודמת. רוצים לחזור אליו?', array( 'כן, תראו לי', 'מחפשים משהו אחר' ) ),
@@ -234,6 +238,9 @@ class AISR_Frontend {
 		}
 		if ( $cat_opener ) {
 			$all['category'] = $cat_opener;
+		}
+		if ( 'category' === $page['type'] && preg_match( '/סדנ/u', (string) ( $page['category'] ?? '' ) ) ) {
+			$all['category'] = $all['workshop']; // The workshops page sells an experience, not items.
 		}
 		// Where the home decides the choice, the first message already offers to match from a photo.
 		if ( 'category' === $page['type'] && preg_match( '/עיצוב|בית|עציץ|צמח|הגשה|שולחן|decor|home|plant/iu', (string) ( $page['category'] ?? '' ) ) ) {

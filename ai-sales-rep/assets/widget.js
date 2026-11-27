@@ -236,7 +236,7 @@
 		name.addEventListener('click', function () { track('clicked', { trigger: 'card' }); });
 		body.appendChild(name);
 		body.appendChild(el('div', 'aisr-card-price', p.made_to_order ? p.price + ' · בהזמנה מראש' : p.price));
-		if (holidayOn() && p.in_stock && !p.made_to_order) body.appendChild(el('div', 'aisr-card-note', 'מגיע לפני ' + C.holiday.name + ' · בהזמנה עד ' + C.holiday.deadlineText));
+		if (holidayOn() && p.in_stock && !p.made_to_order && !p.workshop) body.appendChild(el('div', 'aisr-card-note', 'מגיע לפני ' + C.holiday.name + ' · בהזמנה עד ' + C.holiday.deadlineText));
 		var btn = el('button', 'aisr-card-btn'); btn.type = 'button';
 		if (p.simple && p.in_stock) {
 			btn.textContent = 'הוספה לסל';
@@ -371,7 +371,8 @@
 				(res.cards || []).forEach(function (p) { log.appendChild(card(p)); });
 				// One WhatsApp button at a time: when the reply already offers one, the save link is left out.
 				var hasWa = (res.actions || []).some(function (a) { return a.type === 'whatsapp'; });
-				var sw = (res.cards || []).length && !hasWa ? saveWa(res.cards) : null; if (sw) log.appendChild(sw);
+				var shop = (res.cards || []).filter(function (p) { return !p.workshop; });
+				var sw = shop.length && !hasWa ? saveWa(shop) : null; if (sw) log.appendChild(sw);
 				(res.actions || []).forEach(function (a) { if (a.type !== 'reviews') log.appendChild(action(a)); });
 				setChips(res.replies);
 				scrollDown();
@@ -423,7 +424,7 @@
 			setChips(pendingOpener.replies);
 		} else if (!history.length) {
 			// Opened by the shopper: a short hello with the three things people come for most.
-			var o = (C.openers && (C.openers[page.type === 'product' ? 'welcome_product' : 'welcome'] || C.openers[page.type === 'product' ? 'product_dwell' : (page.type === 'category' ? 'category' : 'home')])) || { text: 'היי, איך אפשר לעזור?', replies: [] };
+			var o = (C.openers && (C.openers[page.workshop ? 'welcome_workshop' : (page.type === 'product' ? 'welcome_product' : 'welcome')] || C.openers[page.type === 'product' ? 'product_dwell' : (page.type === 'category' ? 'category' : 'home')])) || { text: 'היי, איך אפשר לעזור?', replies: [] };
 			bubble('bot', o.text, false); setChips(o.replies);
 		}
 		if (!isMobile && !auto) input.focus(); // Opened by itself: do not take the keyboard from the page.
@@ -474,15 +475,20 @@
 		// A made-to-order product changes what is worth saying: the lead time before a holiday, or an offer to be updated.
 		if (page.made_to_order && trigger === 'product_dwell' && C.holiday && !C.holiday.madeOk && enabled('holiday_made')) trigger = 'holiday_made';
 		if (page.made_to_order && trigger === 'exit_scroll' && enabled('made_lead')) trigger = 'made_lead';
+		// A workshop page sells an experience with the artist: its own words for dwelling, looking and leaving.
+		if (page.workshop) {
+			if (['product_dwell', 'gallery', 'reread', 'footer_reached', 'size_switch', 'category', 'idle'].indexOf(trigger) !== -1 && enabled(trigger)) trigger = 'workshop';
+			else if ((trigger === 'exit_scroll' || trigger === 'tab_return') && enabled(trigger)) trigger = 'workshop_exit';
+		}
 		// The last days to order before the holiday: a browsing or dwelling shopper hears the order-by date first.
-		if (((trigger === 'product_dwell' && page.in_stock && !page.made_to_order) || trigger === 'home' || trigger === 'category') && deadlineSoon() && enabled('holiday_deadline') && !firedSet.holiday_deadline) trigger = 'holiday_deadline';
+		if (!page.workshop && ((trigger === 'product_dwell' && page.in_stock && !page.made_to_order) || trigger === 'home' || trigger === 'category') && deadlineSoon() && enabled('holiday_deadline') && !firedSet.holiday_deadline) trigger = 'holiday_deadline';
 		// On checkout, leaving or stalling becomes one gentle offer of help, and only after 40 seconds there.
 		if (page.type === 'checkout' && (trigger === 'exit_scroll' || trigger === 'tab_return' || trigger === 'idle')) {
 			if ((Date.now() - startedAt) / 1000 < 20) return;
 			trigger = 'checkout_help';
 		}
 		dbg('trigger: ' + trigger);
-		if (!enabled(trigger)) { dbg('  blocked: not enabled in settings'); return; }
+		if (!enabled(trigger) && trigger !== 'workshop' && trigger !== 'workshop_exit') { dbg('  blocked: not enabled in settings'); return; }
 		// One proactive message per visit, but a stronger signal may replace the text of a bubble
 		// the shopper has not reacted to yet (e.g. copying the product name after a 'your cart is waiting').
 		if (upgradeable(trigger)) { dbg('  replaces the bubble of ' + currentTrigger); var u = C.openers && C.openers[trigger]; if (u) { var ut = u.text; for (var uv in vars || {}) ut = ut.split('{' + uv + '}').join(vars[uv]); currentTrigger = trigger; pendingOpener = { trigger: trigger, text: ut, replies: u.replies }; if (!peek.hidden && !peekText.querySelector('.aisr-typing')) { peekText.textContent = ut; track('shown', { trigger: trigger }); } } return; }
