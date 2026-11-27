@@ -53,6 +53,7 @@ class AISR_Frontend {
 			'type'       => $type,
 			'product_id' => $pid,
 			'made_to_order' => $pid && ( $p = wc_get_product( $pid ) ) && 'onbackorder' === $p->get_stock_status(),
+			'in_stock'      => $pid && ( $p = wc_get_product( $pid ) ) && 'instock' === $p->get_stock_status(),
 			'title'      => wp_strip_all_tags( wp_get_document_title() ),
 			'query'      => 'search' === $type ? mb_substr( get_search_query(), 0, 60 ) : '',
 			'search_empty' => 'search' === $type && ! have_posts(),
@@ -129,6 +130,10 @@ class AISR_Frontend {
 			'footer_reached'     => array( 'הגעתם עד הסוף 🙂 משהו חסר לכם בעמוד?', array( 'מידות', 'זמן הכנה', 'משלוח' ) ),
 			'made_lead'          => array( 'את {product} מכינים במיוחד אחרי ההזמנה. רוצים שהסטודיו יעדכן אתכם מתי זה יכול להיות מוכן?', array( 'כן, תעדכנו אותי', 'כמה זמן זה לוקח?', 'לא תודה' ) ),
 			'idle'               => array( 'צריכים עזרה למצוא משהו?', array( 'כן', 'מה הכי נמכר?', 'רק מסתכלים' ) ),
+			'holiday_deadline'   => array( '{product} במלאי 🙂 מזמינים עד {deadline} וזה מגיע לפני {holiday}. נשארה שאלה?', array( 'יש לי שאלה', 'מה משלים את זה?', 'רק מסתכלים' ) ),
+			'holiday_deadline_browse' => array( 'מחפשים מתנה ל{holiday}? 🙂 מה שבמלאי, מזמינים עד {deadline} ומגיע לפני החג. אעזור לבחור?', array( 'כן, עזרה במתנה', 'מתנה עד 200 ₪', 'רק מסתכלים' ) ),
+			'welcome'            => array( 'היי, אני {persona} מהסטודיו 🙂 אפשר לשאול אותי כל דבר, או לבחור כאן:', array( '{gift_chip}', 'התאמת צבע לפי תמונה', 'מתי זה יגיע?' ) ),
+			'welcome_product'    => array( 'היי, אני {persona} מהסטודיו 🙂 אפשר לשאול על {product}, או לבחור כאן:', array( '{gift_chip}', 'התאמת צבע לפי תמונה', 'מתי זה יגיע?' ) ),
 			'returning'          => array( 'ברוכים השבים 🙂 ראיתי שבדקתם את {prev} בפעם הקודמת. רוצים לחזור אליו?', array( 'כן, תראו לי', 'מחפשים משהו אחר' ) ),
 			'category'           => array( 'יש פה הרבה אפשרויות. לעזור לצמצם לפי תקציב או לפי שימוש?', array( 'לפי תקציב', 'לפי שימוש', 'מה הכי נמכר?' ) ),
 			'thankyou'           => array( 'תודה על ההזמנה 🙂 נשארה שאלה, או רוצים רעיון למשהו שמשלים אותה?', array( 'מתי זה יגיע?', 'מה משלים את מה שקניתי?', 'לא תודה' ) ),
@@ -192,6 +197,8 @@ class AISR_Frontend {
 			'item'          => '{item}', // Filled in the browser from the saved cart.
 			'cart_made'     => $page['cart_made'] ?? '',
 			'holiday_part'  => ( $h = AISR_Knowledge::holiday() ) && ! $h['madeOk'] ? 'זה לא יגיע עד ' . $h['name'] . '. ' : '',
+			'deadline'      => ( $hd = AISR_Knowledge::holiday() ) ? $hd['deadlineText'] : '',
+			'persona'       => $s['persona_name'] ?: 'הנציגה',
 			'payment_line'  => $s['payment_summary'] ? 'אפשר לשלם ב' . $s['payment_summary'] . '.' : '',
 			'freeship_hint' => ( $fm = AISR_Knowledge::free_shipping_min() ) ? 'מעל ' . (int) $fm . ' ₪ המשלוח חינם. ' : '',
 			'pickup_hint'   => self::has_pickup() ? 'יש גם איסוף עצמי בלי עלות. ' : '',
@@ -233,10 +240,12 @@ class AISR_Frontend {
 			$all['category'][1] = array_merge( array_slice( (array) $all['category'][1], 0, 3 ), array( '📷 לשלוח תמונה' ) );
 			$all['category'][0] = rtrim( $all['category'][0] ) . ' אפשר גם לשלוח לי תמונה של הפינה, ואמליץ מה יתאים.';
 		}
+		$hol      = AISR_Knowledge::holiday();
+		$gift     = $hol && $hol['deadline'] ? 'מתנה ל' . $hol['name'] : 'מחפשים מתנה';
 		foreach ( $all as $key => $o ) {
 			$out[ $key ] = array(
 				'text'    => self::fill( $o[0], $vars, $emoji ),
-				'replies' => $o[1],
+				'replies' => array_map( static fn( $r ) => str_replace( '{gift_chip}', $gift, (string) $r ), (array) $o[1] ),
 			);
 		}
 		return $out;
@@ -276,6 +285,7 @@ class AISR_Frontend {
 				'freeShipMin'   => (float) AISR_Knowledge::free_shipping_min(),
 				'freeShipGap'   => (int) $s['free_ship_gap'],
 				'holiday'       => AISR_Knowledge::holiday(),
+				'whatsapp'      => preg_replace( '/\D/', '', (string) $s['handoff_whatsapp'] ),
 				'checkoutProactive' => 'ok' === $budget,
 				'version'       => AISR_VERSION,
 				'freshVisits'   => ! empty( $s['fresh_visits'] ),

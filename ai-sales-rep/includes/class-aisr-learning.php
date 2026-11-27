@@ -12,6 +12,8 @@ class AISR_Learning {
 	const OPT       = 'aisr_learned';
 	const DISMISSED = 'aisr_learn_dismissed';
 	const MAX       = 200;
+	/** Questions shoppers of handmade ceramics ask before buying, shown until the owner answers or dismisses them. */
+	const SEED      = array( 'מה קורה אם כלי מגיע שבור במשלוח?', 'איך הכלים נארזים למשלוח?' );
 
 	public static function init(): void {
 		add_action( 'admin_post_aisr_learn_save', array( __CLASS__, 'save' ) );
@@ -81,7 +83,15 @@ class AISR_Learning {
 			}
 		}
 		uasort( $items, static fn( $a, $b ) => $b['n'] <=> $a['n'] );
-		return array_slice( array_values( $items ), 0, 30 );
+		$seed = array();
+		foreach ( self::SEED as $q ) {
+			$k = self::key( $q );
+			if ( ! in_array( $k, $done, true ) ) {
+				unset( $items[ $k ] );
+				$seed[] = array( 'key' => $k, 'q' => $q, 'a' => '', 'pid' => 0, 'n' => 0, 'src' => 'seed', 't' => '' );
+			}
+		}
+		return array_slice( array_merge( $seed, array_values( $items ) ), 0, 30 );
 	}
 
 	/** Splits the weekly report's machine part ("---" then "question || draft answer" lines) from the text. */
@@ -123,7 +133,7 @@ class AISR_Learning {
 		$q   = mb_substr( sanitize_text_field( wp_unslash( (string) ( $_POST['q'] ?? '' ) ) ), 0, 300 );
 		$a   = mb_substr( sanitize_textarea_field( wp_unslash( (string) ( $_POST['a'] ?? '' ) ) ), 0, 1000 );
 		$pid = absint( $_POST['pid'] ?? 0 );
-		$src = 'report' === ( $_POST['src'] ?? '' ) ? 'report' : 'chat';
+		$src = in_array( $_POST['src'] ?? '', array( 'report', 'seed' ), true ) ? sanitize_key( $_POST['src'] ) : 'chat';
 		$old = sanitize_key( (string) ( $_POST['key'] ?? '' ) );
 		// phpcs:enable
 		if ( '' === $q || '' === trim( $a ) ) {
@@ -184,9 +194,11 @@ class AISR_Learning {
 				<div style="color:#50575e;font-size:12px;margin-bottom:6px">
 					<?php
 					echo esc_html(
-						'report' === $it['src']
+						'seed' === $it['src']
+							? 'שאלה שקונים של קרמיקה שואלים לפני קנייה, ועדיין אין עליה תשובה באתר'
+							: ( 'report' === $it['src']
 							? 'הצעה מהדוח השבועי: לבדוק ולתקן את הטיוטה לפני שמירה'
-							: ( $it['n'] > 1 ? 'נשאל ב-' . $it['n'] . ' שיחות' : 'נשאל בשיחה אחת' ) . ( $p ? ' · בעמוד: ' . $p->get_name() : '' )
+							: ( $it['n'] > 1 ? 'נשאל ב-' . $it['n'] . ' שיחות' : 'נשאל בשיחה אחת' ) . ( $p ? ' · בעמוד: ' . $p->get_name() : '' ) )
 					);
 					?>
 				</div>

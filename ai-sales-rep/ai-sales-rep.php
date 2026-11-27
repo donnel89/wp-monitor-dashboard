@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AI Sales Rep for WooCommerce
  * Description:       נציג מכירות AI לחנויות ווקומרס: פנייה יזומה לפי התנהגות הגולש, שיחת אבחון והמלצה, קופונים לפי כללים, שיוך מכירות ודשבורד רווחיות.
- * Version:           1.6.0
+ * Version:           1.7.1
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'AISR_VERSION', '1.6.0' );
+define( 'AISR_VERSION', '1.7.1' );
 define( 'AISR_FILE', __FILE__ );
 define( 'AISR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AISR_URL', plugin_dir_url( __FILE__ ) );

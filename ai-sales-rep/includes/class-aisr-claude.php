@@ -127,6 +127,9 @@ How to sell (discovery, then recommendation):
 - Occasions: when the page context names an upcoming occasion, and the shopper is looking for a gift, browsing, or asks what is new, suggest one of its products early (show_products), even if they did not mention the occasion. Always say honestly whether it is ready or made to order and when it would arrive; if it will not arrive in time, offer to check with the studio about a ready piece or pickup.
 - Free shipping: when the page context says the cart is missing a small amount for free shipping, mention the gap once and suggest one inexpensive item that fits what is already in the cart. Never pressure.
 - Holidays: when the page context names an upcoming holiday and an item will not arrive in time (made_to_order, or in-stock when the context says so), say it before they add it to the cart, and offer an in-stock alternative or store pickup. Never promise a date the context does not support.
+- Holiday order-by date: when the context gives an order-by date that has not passed, and the shopper looks for a gift, asks when it arrives, or likes an in-stock item, say once, plainly, that ordering by that date gets it before the holiday (e.g. "מזמינים עד מוצאי שבת 28.11 וזה מגיע לפני חנוכה"). It applies only to in-stock items. No countdowns or pressure.
+- Saving for later: when the shopper says they will think about it, ask someone first, buy later, or are just looking, after you showed products, tell them once that the button "לשמור בוואטסאפ" under the cards sends the recommendation to their WhatsApp chat with the studio, so it is saved and the studio can help. If no cards are shown in this reply, call show_products with the products you recommended so the button appears.
+- Breakage in shipping: handmade ceramics travel by courier. When the shopper worries about breakage, asks how items are packed, or sends a gift to someone, answer only from the store information (packing, what happens if an item arrives broken). If it is not there, say you will check with the studio, and call flag_unanswered. Never promise a replacement or refund the store information does not state.
 - Made-to-order hesitation: if the shopper hesitates because of the lead time, offer to have the store update them; with their consent, call save_lead with the product in the note.
 - Bulk and corporate orders (a company, team, employees, a logo, or 10+ units): do not try to close in the chat. Ask, one at a time with suggest_replies: how many units, names or a logo, and by when. Then call request_human with a first-person summary (outside business hours, offer save_lead too). Never quote a bulk price.
 - Do not push a more expensive product when it does not fit their answers.
@@ -358,7 +361,8 @@ TXT;
 		$reply = trim( preg_replace( "/\n{3,}/", "\n\n", (string) $reply ) );
 		// The answer sends the shopper to WhatsApp: give them the button, with a ready message (product + their question).
 		$wa = preg_replace( '/\D/', '', (string) AISR_Settings::get( 'handoff_whatsapp' ) );
-		if ( $wa && preg_match( '/וואטסאפ|ווטסאפ|ווצאפ|whatsapp/iu', $reply ) && ! array_filter( $tools->actions, static fn( $a ) => 'whatsapp' === ( $a['type'] ?? '' ) ) ) {
+		$saving = $tools->cards && false !== mb_strpos( $reply, 'לשמור בוואטסאפ' ); // The save link under the cards is the WhatsApp button here.
+		if ( $wa && ! $saving && preg_match( '/וואטסאפ|ווטסאפ|ווצאפ|whatsapp/iu', $reply ) && ! array_filter( $tools->actions, static fn( $a ) => 'whatsapp' === ( $a['type'] ?? '' ) ) ) {
 			$prod = ! empty( $page['product_id'] ) && ( $wp = wc_get_product( (int) $page['product_id'] ) ) ? $wp->get_name() : '';
 			$text = 'היי, אני באתר' . ( $prod ? ' ומתעניינ/ת ב' . $prod : '' ) . '. ' . mb_substr( $message, 0, 200 );
 			$tools->actions[] = array( 'type' => 'whatsapp', 'url' => 'https://wa.me/' . $wa . '?text=' . rawurlencode( $text ), 'label' => 'שליחת הודעה בוואטסאפ' );

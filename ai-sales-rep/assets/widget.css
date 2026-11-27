@@ -191,3 +191,8 @@
 .aisr-review-text { color: var(--aisr-ink); font-size: 14px; line-height: 1.45; }
 .aisr-review-who { color: #8a8580; font-size: 12px; }
 .aisr-root .aisr-google { display: block; font-size: 13px; font-weight: 700; color: var(--aisr-ink); text-decoration: none; background: #f7f4f0; border-radius: 10px; padding: 7px 10px; text-align: center; }
+
+/* Order-by note on a card before a holiday, and the save-to-WhatsApp link under recommendations. */
+.aisr-card-note { font-size: 12px; color: var(--aisr-muted); margin-top: 2px; }
+.aisr-save-wa { display: block; margin: 6px 0 2px; font-size: 13px; font-weight: 600; color: var(--aisr-color, #222); text-decoration: underline; text-underline-offset: 3px; }
+.aisr-bundle .aisr-save-wa { text-align: center; }

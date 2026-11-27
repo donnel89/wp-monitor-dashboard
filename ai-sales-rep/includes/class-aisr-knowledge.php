@@ -167,9 +167,9 @@ class AISR_Knowledge {
 	}
 
 	/** Business days (Sunday to Thursday) from tomorrow up to the day before $date. */
-	public static function business_days_until( string $date ): int {
+	public static function business_days_until( string $date, string $from = 'tomorrow' ): int {
 		$tz    = wp_timezone();
-		$day   = new DateTime( 'tomorrow', $tz );
+		$day   = new DateTime( $from, $tz );
 		$end   = new DateTime( $date, $tz );
 		$count = 0;
 		while ( $day < $end && $count < 400 ) {
@@ -193,12 +193,24 @@ class AISR_Knowledge {
 			return null;
 		}
 		$left = self::business_days_until( $s['holiday_date'] );
+		// The last day to order an in-stock item so it still arrives before the holiday.
+		$deadline = null;
+		for ( $d = clone $today, $i = 0; $i < 60 && $d < $date; $d->modify( '+1 day' ), $i++ ) {
+			$next = ( clone $d )->modify( '+1 day' )->format( 'Y-m-d' );
+			if ( self::business_days_until( $s['holiday_date'], $next ) >= (int) $s['ready_days'] ) {
+				$deadline = clone $d;
+			}
+		}
+		$days = array( 'יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'מוצאי שבת' );
 		return array(
-			'name'     => $s['holiday_name'],
-			'date'     => $s['holiday_date'],
-			'daysLeft' => $left,
-			'readyOk'  => $left >= (int) $s['ready_days'],
-			'madeOk'   => $left >= (int) $s['made_days'],
+			'name'      => $s['holiday_name'],
+			'date'      => $s['holiday_date'],
+			'dateText'  => $date->format( 'j.n' ),
+			'daysLeft'  => $left,
+			'readyOk'   => $left >= (int) $s['ready_days'],
+			'madeOk'    => $left >= (int) $s['made_days'],
+			'deadline'  => $deadline ? $deadline->format( 'Y-m-d' ) : '',
+			'deadlineText' => $deadline ? $days[ (int) $deadline->format( 'w' ) ] . ' ' . $deadline->format( 'j.n' ) : '',
 		);
 	}
 
@@ -355,6 +367,9 @@ class AISR_Knowledge {
 				$s['made_days'],
 				$h['madeOk'] ? 'arrive in time' : 'will NOT arrive in time'
 			);
+			if ( $h['deadline'] ) {
+				$lines[] = 'Order-by date for in-stock items to arrive before ' . $h['name'] . ': ' . $h['deadlineText'] . ' (' . $h['deadline'] . ', today is ' . current_datetime()->format( 'Y-m-d' ) . '). Say this date in Hebrew exactly as written ("' . $h['deadlineText'] . '").';
+			}
 		}
 		return implode( "\n", $lines );
 	}

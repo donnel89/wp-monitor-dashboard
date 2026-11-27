@@ -11,7 +11,9 @@
 		try { var s = window[kind]; var k = '__aisr_t'; s.setItem(k, '1'); s.removeItem(k); return s; } catch (e) { return null; }
 	}
 	var SS = store('sessionStorage');
-	var hasConsent = C.privacyMode === 'extended' && typeof window.wp_has_consent === 'function' && window.wp_has_consent('preferences');
+	// Remembering a visitor between visits needs consent: the WP Consent API in extended mode, or the site's cookie banner (Cookie Notice).
+	var hasConsent = (C.privacyMode === 'extended' && typeof window.wp_has_consent === 'function' && window.wp_has_consent('preferences'))
+		|| /(?:^|; )cookie_notice_accepted=true/.test(document.cookie);
 	var LS = hasConsent ? store('localStorage') : null;
 	// Test mode (only shop managers see the chat): forget the visit on every page load, so each
 	// trigger can be tried again without opening a new tab. Live visitors keep the normal rules.
@@ -234,6 +236,7 @@
 		name.addEventListener('click', function () { track('clicked', { trigger: 'card' }); });
 		body.appendChild(name);
 		body.appendChild(el('div', 'aisr-card-price', p.made_to_order ? p.price + ' · בהזמנה מראש' : p.price));
+		if (holidayOn() && p.in_stock && !p.made_to_order) body.appendChild(el('div', 'aisr-card-note', 'מגיע לפני ' + C.holiday.name + ' · בהזמנה עד ' + C.holiday.deadlineText));
 		var btn = el('button', 'aisr-card-btn'); btn.type = 'button';
 		if (p.simple && p.in_stock) {
 			btn.textContent = 'הוספה לסל';
@@ -250,6 +253,20 @@
 		body.appendChild(btn);
 		c.appendChild(body);
 		return c;
+	}
+	// Days from today (the shopper's clock) to the holiday's order-by date; cached pages may be a day old.
+	function todayStr() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+	function holidayOn() { var h = C.holiday; return !!(h && h.deadline && todayStr() <= h.deadline); }
+	function deadlineSoon() { return holidayOn() && (Date.parse(C.holiday.deadline) - Date.parse(todayStr())) / 864e5 <= 4; }
+	// One tap sends the recommendation to the studio's WhatsApp: the shopper keeps it in their chat, the studio sees the lead.
+	function saveWa(items) {
+		var lines = (items || []).filter(function (p) { return p && p.url; }).map(function (p) { var u = p.url; try { u = decodeURI(u); } catch (e) { /* keep encoded */ } return '• ' + p.name + ' – ' + u; });
+		if (!C.whatsapp || !lines.length) return null;
+		var a = el('a', 'aisr-save-wa', 'לשמור בוואטסאפ');
+		a.href = 'https://wa.me/' + C.whatsapp + '?text=' + encodeURIComponent('היי, שמרתי מהצ׳אט באתר:\n' + lines.join('\n'));
+		a.target = '_blank'; a.rel = 'noopener';
+		a.addEventListener('click', function () { track('clicked', { trigger: 'save_whatsapp' }); });
+		return a;
 	}
 	function action(a) {
 		var wrap = el('div', 'aisr-action');
@@ -269,6 +286,7 @@
 				}).catch(function () { all.disabled = false; all.textContent = 'לא הצלחנו להוסיף. נסו שוב'; });
 			});
 			box.appendChild(all);
+			var sw = saveWa(a.items); if (sw) box.appendChild(sw);
 			wrap.appendChild(box);
 			return wrap;
 		}
@@ -351,6 +369,9 @@
 				if (t.parentNode) t.remove();
 				if (!(res.bubbles || []).length) { (res.actions || []).forEach(function (a) { if (a.type === 'reviews') log.appendChild(action(a)); }); }
 				(res.cards || []).forEach(function (p) { log.appendChild(card(p)); });
+				// One WhatsApp button at a time: when the reply already offers one, the save link is left out.
+				var hasWa = (res.actions || []).some(function (a) { return a.type === 'whatsapp'; });
+				var sw = (res.cards || []).length && !hasWa ? saveWa(res.cards) : null; if (sw) log.appendChild(sw);
 				(res.actions || []).forEach(function (a) { if (a.type !== 'reviews') log.appendChild(action(a)); });
 				setChips(res.replies);
 				scrollDown();
@@ -401,7 +422,8 @@
 			bubble('bot', pendingOpener.text, false);
 			setChips(pendingOpener.replies);
 		} else if (!history.length) {
-			var o = (C.openers && C.openers[page.type === 'product' ? 'product_dwell' : (page.type === 'category' ? 'category' : 'home')]) || { text: 'היי, איך אפשר לעזור?', replies: [] };
+			// Opened by the shopper: a short hello with the three things people come for most.
+			var o = (C.openers && (C.openers[page.type === 'product' ? 'welcome_product' : 'welcome'] || C.openers[page.type === 'product' ? 'product_dwell' : (page.type === 'category' ? 'category' : 'home')])) || { text: 'היי, איך אפשר לעזור?', replies: [] };
 			bubble('bot', o.text, false); setChips(o.replies);
 		}
 		if (!isMobile && !auto) input.focus(); // Opened by itself: do not take the keyboard from the page.
@@ -438,7 +460,7 @@
 	}
 	var firedSet = {}, lastShownAt = 0;
 	var PRIORITY = { copy_name: 3, add_error: 3, shipping_cost: 3, checkout_help: 3, rage_click: 2, search_empty: 3,
-		cart_made: 2, holiday_made: 2, freeship_gap: 2, gallery: 2, tab_return: 2, exit_scroll: 2, made_lead: 2, compare_many: 2, policy_return: 2 };
+		cart_made: 2, holiday_made: 2, holiday_deadline: 2, freeship_gap: 2, gallery: 2, tab_return: 2, exit_scroll: 2, made_lead: 2, compare_many: 2, policy_return: 2 };
 	var currentTrigger = '';
 	function prio(t) { return PRIORITY[t] || 1; }
 	function upgradeable(trigger) {
@@ -452,6 +474,8 @@
 		// A made-to-order product changes what is worth saying: the lead time before a holiday, or an offer to be updated.
 		if (page.made_to_order && trigger === 'product_dwell' && C.holiday && !C.holiday.madeOk && enabled('holiday_made')) trigger = 'holiday_made';
 		if (page.made_to_order && trigger === 'exit_scroll' && enabled('made_lead')) trigger = 'made_lead';
+		// The last days to order before the holiday: a browsing or dwelling shopper hears the order-by date first.
+		if (((trigger === 'product_dwell' && page.in_stock && !page.made_to_order) || trigger === 'home' || trigger === 'category') && deadlineSoon() && enabled('holiday_deadline') && !firedSet.holiday_deadline) trigger = 'holiday_deadline';
 		// On checkout, leaving or stalling becomes one gentle offer of help, and only after 40 seconds there.
 		if (page.type === 'checkout' && (trigger === 'exit_scroll' || trigger === 'tab_return' || trigger === 'idle')) {
 			if ((Date.now() - startedAt) / 1000 < 20) return;
@@ -467,7 +491,7 @@
 			return;
 		}
 		if (!strong && !eligible()) { dbg('  waiting: needs 2 pages or the dwell time'); return; }
-		var o = C.openers && C.openers[trigger];
+		var o = C.openers && C.openers[trigger === 'holiday_deadline' && page.type !== 'product' ? 'holiday_deadline_browse' : trigger];
 		if (!o) return;
 		var text = o.text;
 		for (var v in vars || {}) text = text.split('{' + v + '}').join(vars[v]);
