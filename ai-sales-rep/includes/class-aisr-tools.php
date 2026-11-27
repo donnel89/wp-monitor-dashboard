@@ -58,6 +58,19 @@ class AISR_Tools {
 				),
 			),
 			array(
+				'name'        => 'add_to_cart',
+				'description' => 'Add one product to the shopper\'s cart from the chat, when they ask you to add it or say yes to adding it. For a variable product pass the variation_id as product_id. If get_product shows options (e.g. "בחירת ספלים" with min/max), pass the shopper\'s choices in options, keyed by the option id, each value a list of choice labels (or the text for a text field). The chat shows a confirmation once it is in the cart.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'product_id' => array( 'type' => 'integer' ),
+						'quantity'   => array( 'type' => 'integer' ),
+						'options'    => array( 'type' => 'object', 'description' => 'Option id => list of choice labels, or text' ),
+					),
+					'required'   => array( 'product_id' ),
+				),
+			),
+			array(
 				'name'        => 'show_bundle',
 				'description' => 'Build a gift set from 2-4 different products that go together, shown with one button that adds all of them to the cart. Use it whenever the shopper asks for several items or a set. Only simple, purchasable products; check them with search_products/get_product first. Give the set a short title (e.g. "סט מתנה למארחת").',
 				'inputSchema' => array(
@@ -233,6 +246,7 @@ class AISR_Tools {
 				'remind_me'       => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::add_reminder( (string) ( $input['date'] ?? '' ), (string) ( $input['occasion'] ?? '' ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ), (string) ( $input['email'] ?? '' ), (array) ( $input['product_ids'] ?? array() ) ) ),
 				'suggest_replies' => $this->suggest_replies( $input ),
 				'record_insight'  => $this->record_insight( $input ),
+				'add_to_cart'     => $this->add_to_cart( $input ),
 				'offer_coupon'    => $this->offer_coupon( $input ),
 				'track_order'     => $this->track_order( $input ),
 				'request_human'   => $this->request_human( $input ),
@@ -354,6 +368,89 @@ class AISR_Tools {
 		$opts          = array_slice( array_filter( array_map( 'sanitize_text_field', (array) ( $in['options'] ?? array() ) ) ), 0, 4 );
 		$this->replies = array_values( $opts );
 		return array( 'shown' => count( $this->replies ) );
+	}
+
+	/** Queue an add-to-cart for the widget, after checking the product and every required choice. */
+	private function add_to_cart( array $in ): array {
+		$p = wc_get_product( absint( $in['product_id'] ?? 0 ) );
+		if ( ! $p ) {
+			return array( 'error' => 'not_found' );
+		}
+		$base = $p->is_type( 'variation' ) ? wc_get_product( $p->get_parent_id() ) : $p;
+		if ( ! $base || 'publish' !== $base->get_status() ) {
+			return array( 'error' => 'not_found' );
+		}
+		if ( $p->is_type( 'variable' ) ) {
+			return array( 'error' => 'choose_variation', 'note' => 'Pass the variation_id of the option the shopper chose (get_product lists them).' );
+		}
+		if ( AISR_Knowledge::is_workshop( $base->get_id() ) ) {
+			return array( 'error' => 'workshop', 'note' => 'A workshop date is set with Mai on WhatsApp: use request_human.' );
+		}
+		if ( ! $p->is_purchasable() || ! $p->is_in_stock() ) {
+			return array( 'error' => 'unavailable' );
+		}
+		$qty    = max( 1, min( 20, (int) ( $in['quantity'] ?? 1 ) ) );
+		$given  = (array) ( $in['options'] ?? array() );
+		$opts   = $base->is_type( 'simple' ) && ( $given || ! AISR_Knowledge::quick_addable( $base ) ) ? AISR_Knowledge::product_options( $base ) : array( 'groups' => '', 'fields' => array() );
+		$fields = array();
+		$shown  = array();
+		$norm   = static fn( $s ) => trim( preg_replace( '/[\s\'"׳״`]+/u', ' ', mb_strtolower( (string) $s ) ) );
+		foreach ( $opts['fields'] as $f ) {
+			$val = $given[ $f['id'] ] ?? $given[ $f['label'] ] ?? null;
+			if ( null === $val ) {
+				foreach ( $given as $k => $v ) { // The model may key it by a shortened label.
+					if ( '' !== $norm( $k ) && false !== mb_strpos( $norm( $f['label'] ), $norm( $k ) ) ) {
+						$val = $v;
+						break;
+					}
+				}
+			}
+			if ( ! empty( $f['choices'] ) ) {
+				$picked = array();
+				foreach ( array_filter( array_map( 'strval', (array) $val ), 'strlen' ) as $want ) {
+					$hit = null;
+					foreach ( $f['choices'] as $c ) {
+						if ( $want === $c['value'] || $norm( $want ) === $norm( $c['label'] ) ) {
+							$hit = $c;
+							break;
+						}
+					}
+					if ( ! $hit ) {
+						return array( 'error' => 'invalid_choice', 'option' => $f['label'], 'given' => $want, 'choices' => wp_list_pluck( $f['choices'], 'label' ) );
+					}
+					$picked[ $hit['value'] ] = $hit['label'];
+				}
+				$min = $f['min'] ?? ( $f['required'] ? 1 : 0 );
+				$max = $f['max'] ?? ( empty( $f['multi'] ) ? 1 : count( $f['choices'] ) );
+				if ( count( $picked ) < $min || count( $picked ) > $max ) {
+					return array( 'error' => 'missing_options', 'option' => $f['label'], 'need' => $min === $max ? "exactly $min different choices" : "between $min and $max choices", 'choices' => wp_list_pluck( $f['choices'], 'label' ), 'note' => 'Recommend choices that fit what the shopper said, confirm with them, then call add_to_cart again.' );
+				}
+				if ( $picked ) {
+					$fields[ $f['id'] ] = array_keys( $picked );
+					$shown[]            = implode( ', ', $picked );
+				}
+			} else {
+				$text = mb_substr( sanitize_text_field( is_array( $val ) ? implode( ', ', $val ) : (string) $val ), 0, 200 );
+				if ( '' === $text && $f['required'] ) {
+					return array( 'error' => 'missing_options', 'option' => $f['label'], 'need' => 'text' );
+				}
+				if ( '' !== $text ) {
+					$fields[ $f['id'] ] = $text;
+					$shown[]            = $text;
+				}
+			}
+		}
+		$this->actions[] = array(
+			'type'    => 'add_to_cart',
+			'id'      => $p->get_id(),
+			'qty'     => $qty,
+			'groups'  => $opts['groups'],
+			'fields'  => (object) $fields,
+			'name'    => $base->get_name(),
+			'summary' => implode( ' · ', $shown ),
+			'url'     => get_permalink( $base->get_id() ),
+		);
+		return array( 'queued' => true, 'choices' => $shown, 'note' => 'The chat adds it to the cart now and shows a confirmation under your message. Say in one short sentence that you are adding it (e.g. "מוסיפה לסל"), with the choices.' );
 	}
 
 	private function record_insight( array $in ): array {

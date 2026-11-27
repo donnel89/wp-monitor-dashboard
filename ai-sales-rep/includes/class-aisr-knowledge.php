@@ -440,6 +440,84 @@ class AISR_Knowledge {
 		return $ok;
 	}
 
+	/**
+	 * The choices a product-options plugin (Advanced Product Fields) asks for on the product page, e.g. "pick 3 cups".
+	 * Read from the fields the plugin prints before the add-to-cart button; cached until the product changes.
+	 * Each field: id, label, type, required, min, max, and choices (value + label) when it is a pick list.
+	 */
+	public static function product_options( WC_Product $p ): array {
+		$mod = $p->get_date_modified();
+		$key = 'aisr_opts_' . $p->get_id() . '_' . ( $mod ? $mod->getTimestamp() : 0 );
+		$hit = get_transient( $key );
+		if ( is_array( $hit ) ) {
+			return $hit;
+		}
+		$html = '';
+		if ( has_action( 'woocommerce_before_add_to_cart_button' ) ) {
+			global $product, $post;
+			$keep_product = $product;
+			$keep_post    = $post;
+			$product      = $p; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+			$post         = get_post( $p->get_id() ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+			setup_postdata( $post );
+			ob_start();
+			try {
+				do_action( 'woocommerce_before_add_to_cart_button' );
+			} catch ( \Throwable $e ) {
+				unset( $e );
+			}
+			$html    = (string) ob_get_clean();
+			$product = $keep_product; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+			$post    = $keep_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+			if ( $post ) {
+				setup_postdata( $post );
+			} else {
+				wp_reset_postdata();
+			}
+		}
+		if ( false === strpos( $html, 'wapf-field-container' ) ) {
+			$res  = wp_remote_get( get_permalink( $p->get_id() ), array( 'timeout' => 8, 'user-agent' => 'Mozilla/5.0 (AISR options)' ) );
+			$html = is_wp_error( $res ) ? '' : (string) wp_remote_retrieve_body( $res );
+		}
+		$out = array( 'groups' => '', 'fields' => array() );
+		if ( preg_match( '/name="wapf_field_groups"[^>]*value="([^"]*)"|value="([^"]*)"[^>]*name="wapf_field_groups"/', $html, $g ) ) {
+			$out['groups'] = sanitize_text_field( $g[1] ?: $g[2] );
+		}
+		$parts = preg_split( '/<div class="wapf-field-container /', $html );
+		array_shift( $parts );
+		foreach ( $parts as $part ) {
+			if ( ! preg_match( '/^wapf-field-([a-z0-9-]+)\s+field-([a-z0-9]+)/', $part, $m ) ) {
+				continue;
+			}
+			$type  = $m[1];
+			$label = preg_match( '/wapf-field-label"><label><span>(.*?)<\/span>/s', $part, $l ) ? trim( html_entity_decode( wp_strip_all_tags( $l[1] ) ), " :\t\n" ) : '';
+			$field = array(
+				'id'       => $m[2],
+				'label'    => $label,
+				'type'     => $type,
+				'required' => (bool) preg_match( '/<abbr class="required"/', substr( $part, 0, 600 ) ),
+			);
+			if ( preg_match( '/data-minc="(\d+)"/', $part, $mn ) ) {
+				$field['min'] = (int) $mn[1];
+			}
+			if ( preg_match( '/data-maxc="(\d+)"/', $part, $mx ) ) {
+				$field['max'] = (int) $mx[1];
+			}
+			preg_match_all( '/value="([^"]+)"[^>]*data-wapf-label="([^"]*)"/', $part, $cm, PREG_SET_ORDER );
+			$choices = array();
+			foreach ( $cm as $c ) {
+				$choices[ $c[1] ] = array( 'value' => $c[1], 'label' => html_entity_decode( $c[2], ENT_QUOTES ) );
+			}
+			if ( $choices ) {
+				$field['choices'] = array_values( $choices );
+				$field['multi']   = false !== strpos( $type, 'multi' ) || false !== strpos( $type, 'checkbox' );
+			}
+			$out['fields'][] = $field;
+		}
+		set_transient( $key, $out, 12 * HOUR_IN_SECONDS );
+		return $out;
+	}
+
 	public static function product_card( WC_Product $p ): array {
 		$img = wp_get_attachment_image_url( $p->get_image_id(), 'woocommerce_thumbnail' );
 		return array(
@@ -506,6 +584,12 @@ class AISR_Knowledge {
 		}
 		if ( $full ) {
 			$d['description'] = self::clean_text( $p->get_description(), 2500 );
+			if ( $p->is_type( 'simple' ) && ! self::quick_addable( $p ) ) {
+				$opts = self::product_options( $p );
+				if ( $opts['fields'] ) {
+					$d['options'] = $opts['fields']; // Choices the shopper makes on the product page; add_to_cart takes them too.
+				}
+			}
 			if ( $p->is_type( 'variable' ) ) {
 				$vars = array();
 				foreach ( array_slice( $p->get_available_variations(), 0, 30 ) as $v ) {

@@ -196,3 +196,5 @@
 .aisr-card-note { font-size: 12px; color: var(--aisr-muted); margin-top: 2px; }
 .aisr-save-wa { display: block; margin: 6px 0 2px; font-size: 13px; font-weight: 600; color: var(--aisr-color, #222); text-decoration: underline; text-underline-offset: 3px; }
 .aisr-bundle .aisr-save-wa { text-align: center; }
+
+.aisr-root .aisr-added { background: #eef7ee; border: 1px solid #cfe6cf; color: #1d4d1d; border-radius: 10px; padding: 8px 10px; font-size: 14px; line-height: 1.4; margin-bottom: 6px; }

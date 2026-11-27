@@ -286,6 +286,8 @@ class AISR_Frontend {
 				'rest'          => esc_url_raw( rest_url( AISR_REST::NS ) ),
 				'storeApi'      => esc_url_raw( rest_url( 'wc/store/v1' ) ),
 				'storeNonce'    => wp_create_nonce( 'wc_store_api' ),
+				'wcAjax'        => class_exists( 'WC_AJAX' ) ? esc_url_raw( WC_AJAX::get_endpoint( '%%endpoint%%' ) ) : '',
+				'cartUrl'       => function_exists( 'wc_get_checkout_url' ) ? esc_url_raw( wc_get_checkout_url() ) : '',
 				// Test mode only (logged-in, uncached pages): lets REST see the logged-in manager.
 				'restNonce'     => 'all' === $s['visibility'] && ! current_user_can( 'manage_woocommerce' ) ? '' : wp_create_nonce( 'wp_rest' ), // Managers' pages are not cached.
 				'page'          => $page,

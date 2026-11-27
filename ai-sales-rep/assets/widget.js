@@ -119,6 +119,25 @@
 			return r.json().then(function (j) { if (!r.ok) throw j; return j; });
 		});
 	}
+	// Adds through WooCommerce's own add-to-cart, with the product page's option fields, so required choices pass validation.
+	function wcAjaxAdd(a) {
+		var fd = new URLSearchParams();
+		fd.append('product_id', a.id); fd.append('quantity', a.qty || 1);
+		if (a.groups) fd.append('wapf_field_groups', a.groups);
+		Object.keys(a.fields || {}).forEach(function (k) {
+			var v = a.fields[k];
+			if (Array.isArray(v)) v.forEach(function (x) { fd.append('wapf[field_' + k + '][]', x); });
+			else fd.append('wapf[field_' + k + ']', v);
+		});
+		return fetch(C.wcAjax.replace('%%endpoint%%', 'add_to_cart'), {
+			method: 'POST', credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd.toString()
+		}).then(function (r) { return r.json(); }).then(function (j) {
+			if (!j || j.error) throw j;
+			try { if (window.jQuery && j.fragments) window.jQuery(document.body).trigger('added_to_cart', [j.fragments, j.cart_hash]); } catch (e) { /* ignore */ }
+			return j;
+		});
+	}
 	function refreshMiniCart() {
 		try { if (window.jQuery) window.jQuery(document.body).trigger('wc_fragment_refresh'); } catch (e) { /* ignore */ }
 		try { document.body.dispatchEvent(new CustomEvent('wc-blocks_added_to_cart')); } catch (e) { /* ignore */ }
@@ -307,6 +326,19 @@
 				rv.appendChild(gl);
 			}
 			wrap.appendChild(rv);
+			return wrap;
+		}
+		if (a.type === 'add_to_cart') {
+			var box2 = el('div', 'aisr-added', 'מוסיף לסל…');
+			wrap.appendChild(box2);
+			wcAjaxAdd(a).then(function () {
+				box2.textContent = '✓ נוסף לסל: ' + a.name + (a.summary ? ' · ' + a.summary : '');
+				if (C.cartUrl) { var go = el('a', 'aisr-btn', 'למעבר לתשלום'); go.href = C.cartUrl; wrap.appendChild(go); }
+				refreshMiniCart(); track('add_to_cart', { trigger: 'chat' }); set(SS, 'added', true);
+			}).catch(function () {
+				box2.textContent = 'לא הצלחתי להוסיף מכאן. אפשר להוסיף בעמוד המוצר.';
+				var pg = el('a', 'aisr-btn', 'לעמוד המוצר'); pg.href = a.url; wrap.appendChild(pg);
+			});
 			return wrap;
 		}
 		if (a.type === 'whatsapp') {
