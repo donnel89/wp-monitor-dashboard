@@ -426,11 +426,18 @@
 			return wrap;
 		}
 		if (a.type === 'options') { return picker(a.sheet); }
+		if (a.type === 'gift') {
+			var g = el('div', 'aisr-gift');
+			g.appendChild(el('div', 'aisr-gift-title', '💌 הברכה תיכנס להזמנה'));
+			g.appendChild(el('div', 'aisr-gift-text', a.text));
+			wrap.appendChild(g);
+			return wrap;
+		}
 		if (a.type === 'add_to_cart') {
 			var box2 = el('div', 'aisr-added', 'מוסיף לסל…');
 			wrap.appendChild(box2);
 			wcAjaxAdd(a).then(function () {
-				var done = '✓ נוסף לסל: ' + a.name + (a.summary ? ' · ' + a.summary : '');
+				var done = '✓ נוסף לסל: ' + a.name + (a.summary ? ' · ' + a.summary : '') + (a.gift ? ' · עם הברכה' : '');
 				box2.textContent = done;
 				refreshMiniCart(); track('add_to_cart', { trigger: 'chat' }); set(SS, 'added', true);
 				if (!C.cartUrl) return;

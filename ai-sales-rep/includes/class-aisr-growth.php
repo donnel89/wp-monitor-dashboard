@@ -12,6 +12,8 @@ class AISR_Growth {
 	public static function init(): void {
 		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'gift_message_to_order' ), 20, 1 );
 		add_action( 'woocommerce_store_api_checkout_update_order_meta', array( __CLASS__, 'gift_message_to_order' ), 20, 1 );
+		add_action( 'woocommerce_admin_order_data_after_shipping_address', array( __CLASS__, 'gift_message_admin' ), 10, 1 );
+		add_filter( 'woocommerce_email_order_meta_fields', array( __CLASS__, 'gift_message_email' ), 10, 3 );
 		add_action( 'woocommerce_product_set_stock_status', array( __CLASS__, 'stock_changed' ), 10, 2 );
 		add_action( 'woocommerce_variation_set_stock_status', array( __CLASS__, 'variation_stock_changed' ), 10, 2 );
 		add_action( 'admin_post_aisr_weekly_report_now', array( __CLASS__, 'report_now' ) );
@@ -21,12 +23,52 @@ class AISR_Growth {
 
 	/* ---------- gift message ---------- */
 
-	public static function set_gift_message( string $text ): bool {
-		if ( ! function_exists( 'WC' ) || ! WC()->session ) {
-			return false;
+	/**
+	 * Saves the greeting in the shopper's WooCommerce session and with the conversation, so it reaches the order
+	 * even when the session did not exist yet (a new visitor whose cart was still empty).
+	 */
+	public static function set_gift_message( string $text, string $uuid = '' ): string {
+		$msg = mb_substr( trim( sanitize_textarea_field( $text ) ), 0, 400 );
+		if ( '' === $msg ) {
+			return '';
 		}
-		WC()->session->set( 'aisr_gift_message', mb_substr( sanitize_textarea_field( $text ), 0, 400 ) );
-		return true;
+		if ( $uuid ) {
+			set_transient( 'aisr_gift_' . md5( $uuid ), $msg, 30 * DAY_IN_SECONDS );
+		}
+		if ( function_exists( 'WC' ) && WC()->session ) {
+			if ( ! WC()->session->has_session() && method_exists( WC()->session, 'set_customer_session_cookie' ) ) {
+				WC()->session->set_customer_session_cookie( true );
+			}
+			WC()->session->set( 'aisr_gift_message', $msg );
+		}
+		return $msg;
+	}
+
+	/** The greeting waiting for this shopper's order: from the session, or from their chat conversation. */
+	public static function pending_gift_message( string $uuid = '' ): string {
+		$msg = function_exists( 'WC' ) && WC()->session ? (string) WC()->session->get( 'aisr_gift_message', '' ) : '';
+		if ( '' === $msg && '' === $uuid && ! empty( $_COOKIE['aisr_conv'] ) ) {
+			$uuid = explode( '.', sanitize_text_field( wp_unslash( $_COOKIE['aisr_conv'] ) ) )[0];
+		}
+		if ( '' === $msg && $uuid ) {
+			$msg = (string) get_transient( 'aisr_gift_' . md5( $uuid ) );
+		}
+		return $msg;
+	}
+
+	public static function gift_message_admin( $order ): void {
+		$msg = $order instanceof WC_Order ? (string) $order->get_meta( '_aisr_gift_message' ) : '';
+		if ( '' !== $msg ) {
+			echo '<p><strong>ברכה למתנה (מהצ\'אט):</strong><br>' . nl2br( esc_html( $msg ) ) . '</p>';
+		}
+	}
+
+	public static function gift_message_email( $fields, $sent_to_admin, $order ) {
+		$msg = $order instanceof WC_Order ? (string) $order->get_meta( '_aisr_gift_message' ) : '';
+		if ( '' !== $msg ) {
+			$fields['aisr_gift'] = array( 'label' => 'ברכה למתנה', 'value' => $msg );
+		}
+		return $fields;
 	}
 
 	/** Adds the greeting written in the chat to the order's customer note, so the studio sees it with the order. */
@@ -34,14 +76,22 @@ class AISR_Growth {
 		if ( ! $order instanceof WC_Order || ! function_exists( 'WC' ) || ! WC()->session ) {
 			return;
 		}
-		$msg = (string) WC()->session->get( 'aisr_gift_message', '' );
+		$msg = self::pending_gift_message();
 		if ( '' === $msg || $order->get_meta( '_aisr_gift_message' ) ) {
 			return;
 		}
 		$note = trim( $order->get_customer_note() );
-		$order->set_customer_note( trim( $note . "\n\nברכה למתנה (נכתבה בצ'אט): " . $msg ) );
+		if ( false === mb_strpos( $note, $msg ) ) {
+			$order->set_customer_note( trim( $note . "\n\nברכה למתנה (נכתבה בצ'אט): " . $msg ) );
+		}
 		$order->update_meta_data( '_aisr_gift_message', $msg );
+		if ( $order->get_id() ) { // On the classic checkout hook the order is not saved yet; the customer note carries it.
+			$order->add_order_note( "ברכה למתנה מהצ'אט: " . $msg );
+		}
 		WC()->session->set( 'aisr_gift_message', '' );
+		if ( ! empty( $_COOKIE['aisr_conv'] ) ) {
+			delete_transient( 'aisr_gift_' . md5( explode( '.', sanitize_text_field( wp_unslash( $_COOKIE['aisr_conv'] ) ) )[0] ) );
+		}
 	}
 
 	/* ---------- back-in-stock waitlist ---------- */

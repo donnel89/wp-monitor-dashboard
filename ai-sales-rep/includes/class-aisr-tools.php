@@ -105,7 +105,7 @@ class AISR_Tools {
 			),
 			array(
 				'name'        => 'set_gift_message',
-				'description' => 'Save the gift greeting the shopper approved, so it is added to their order for the studio. Write the greeting with them first and show it; call this only after they say it is good.',
+				'description' => 'Save the gift greeting the shopper approved; it goes into their order automatically for the studio. Write the greeting with them first and show it; call this only after they say it is good, and before add_to_cart.',
 				'inputSchema' => array(
 					'type'       => 'object',
 					'properties' => array( 'message' => array( 'type' => 'string' ) ),
@@ -254,7 +254,7 @@ class AISR_Tools {
 				'show_products'   => $this->show_products( $input ),
 				'show_bundle'     => $this->show_bundle( $input ),
 				'show_reviews'    => $this->show_reviews( $input ),
-				'set_gift_message' => array( 'saved' => AISR_Growth::set_gift_message( (string) ( $input['message'] ?? '' ) ), 'note' => 'It will be added to the order as a note for the studio.' ),
+				'set_gift_message' => $this->set_gift_message( $input ),
 				'join_waitlist'   => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::join_waitlist( (int) ( $input['product_id'] ?? 0 ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ) ) ),
 				'remind_me'       => empty( $input['consent'] ) ? array( 'error' => 'consent_required' ) : array( 'saved' => AISR_Growth::add_reminder( (string) ( $input['date'] ?? '' ), (string) ( $input['occasion'] ?? '' ), (string) ( $input['name'] ?? '' ), (string) ( $input['phone'] ?? '' ), (string) ( $input['email'] ?? '' ), (array) ( $input['product_ids'] ?? array() ) ) ),
 				'suggest_replies' => $this->suggest_replies( $input ),
@@ -384,6 +384,16 @@ class AISR_Tools {
 		return array( 'shown' => count( $this->replies ) );
 	}
 
+	/** The approved greeting goes with the order; the chat shows it so the shopper knows it is saved. */
+	private function set_gift_message( array $in ): array {
+		$msg = AISR_Growth::set_gift_message( (string) ( $in['message'] ?? '' ), (string) ( $this->conv['uuid'] ?? '' ) );
+		if ( '' === $msg ) {
+			return array( 'saved' => false );
+		}
+		$this->actions[] = array( 'type' => 'gift', 'text' => $msg );
+		return array( 'saved' => true, 'note' => 'Saved: it goes into the order automatically, as a note the studio sees with the order. A card with the greeting is shown under your message, so do not repeat the greeting text.' );
+	}
+
 	/** Queue an add-to-cart for the widget, after checking the product and every required choice. */
 	private function add_to_cart( array $in ): array {
 		$p = wc_get_product( absint( $in['product_id'] ?? 0 ) );
@@ -476,6 +486,7 @@ class AISR_Tools {
 			'summary' => implode( ' · ', $shown ),
 			'url'     => get_permalink( $base->get_id() ),
 			'checkout' => ! isset( $in['go_to_checkout'] ) || ! empty( $in['go_to_checkout'] ),
+			'gift'     => '' !== AISR_Growth::pending_gift_message( (string) ( $this->conv['uuid'] ?? '' ) ),
 		);
 		$go = end( $this->actions )['checkout'];
 		return array( 'queued' => true, 'choices' => $shown, 'note' => 'The chat adds it to the cart now and shows a confirmation under your message' . ( $go ? ', then takes the shopper to checkout' : '' ) . '. Say in one short sentence that you are adding it, with the choices' . ( $go ? ', and that it moves to payment' : '' ) . '. Do not ask another question.' );

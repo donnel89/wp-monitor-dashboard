@@ -220,3 +220,7 @@
 .aisr-root button.aisr-pk-go { background: var(--aisr-color) !important; color: #fff !important; border: 0 !important; width: 100% !important; }
 .aisr-root button.aisr-pk-opt { background: #fff !important; color: #222 !important; }
 .aisr-root .aisr-pk-opt span { white-space: nowrap; }
+
+.aisr-root .aisr-gift { border: 1px dashed var(--aisr-color); border-radius: 12px; padding: 8px 12px; background: #fff; }
+.aisr-root .aisr-gift-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.aisr-root .aisr-gift-text { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
