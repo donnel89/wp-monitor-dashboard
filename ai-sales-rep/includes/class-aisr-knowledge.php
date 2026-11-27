@@ -90,6 +90,15 @@ class AISR_Knowledge {
 			$lines[] = $s['knowledge_extra'];
 		}
 
+		$owner = AISR_Learning::general();
+		if ( $owner ) {
+			$lines[] = '';
+			$lines[] = '# Answers the store owner gave to questions shoppers asked (verified, these override anything above)';
+			foreach ( $owner as $e ) {
+				$lines[] = 'Q: ' . $e['q'] . "\nA: " . $e['a'];
+			}
+		}
+
 		$out = implode( "\n", $lines );
 		set_transient( self::CACHE_KEY, $out, 6 * HOUR_IN_SECONDS );
 		return $out;
@@ -449,6 +458,10 @@ class AISR_Knowledge {
 		}
 		if ( $attrs ) {
 			$d['attributes'] = $attrs;
+		}
+		$owner = AISR_Learning::for_product( $p->get_id() );
+		if ( $owner ) {
+			$d['owner_answers'] = $owner; // Verified by the store owner for this product.
 		}
 		if ( $p->get_weight() ) {
 			$d['weight'] = $p->get_weight() . ' ' . get_option( 'woocommerce_weight_unit' );

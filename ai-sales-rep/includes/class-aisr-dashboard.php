@@ -218,12 +218,7 @@ class AISR_Dashboard {
 				</tbody>
 			</table>
 
-			<h2>שאלות שהבוט לא ידע לענות</h2>
-			<p class="description">הוסיפו את התשובות ב"מידע משלים ותיקונים" בהגדרות.</p>
-			<ul style="list-style:disc;padding-right:20px">
-				<?php foreach ( $st['questions'] as $q ) : ?><li><?php echo esc_html( $q ); ?></li><?php endforeach; ?>
-				<?php if ( ! $st['questions'] ) : ?><li>אין שאלות פתוחות.</li><?php endif; ?>
-			</ul>
+			<?php AISR_Learning::render(); ?>
 
 			<h2 id="aisr-weekly">דוח שבועי: למה לא קנו ומה לתקן</h2>
 			<?php $aisr_rep = get_option( 'aisr_weekly_report' ); ?>

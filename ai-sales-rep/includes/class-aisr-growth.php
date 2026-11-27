@@ -223,16 +223,18 @@ class AISR_Growth {
 		}
 		$searches = array_slice( array_column( (array) get_option( 'aisr_failed_searches', array() ), 'q' ), 0, 15 );
 		$prompt   = "These are shopper messages from this week's chats on an online store (one line per chat, trigger in brackets). Write a short report in Hebrew for the store owner, plain text, no markdown:\n"
-			. "1) The 5 main reasons shoppers hesitated or did not buy, each with how many chats showed it.\n2) Questions the store did not answer, and the exact text to add to the site or product pages.\n3) Three concrete changes for next week.\nOnly use what is in the data. Do not invent numbers.\n\nChats:\n" . implode( "\n", $chats )
+			. "1) The 5 main reasons shoppers hesitated or did not buy, each with how many chats showed it.\n2) Questions the store did not answer, and the exact text to add to the site or product pages.\n3) Three concrete changes for next week.\nOnly use what is in the data. Do not invent numbers.\n"
+			. "4) Then a line with only ---, and after it up to 6 lines for the chat assistant's knowledge base, one per line, in Hebrew, in the form: shopper question || draft answer. Pick questions that shoppers asked and the store did not answer. Write a draft answer only if the data or a shopper message clearly gives it; otherwise leave the part after || empty. The owner checks every line before it is used.\n\nChats:\n" . implode( "\n", $chats )
 			. ( $searches ? "\n\nSite searches that found nothing: " . implode( ', ', $searches ) : '' );
 		$text = AISR_Claude::summarize( $prompt );
 		if ( '' === $text ) {
 			return '';
 		}
-		update_option( 'aisr_weekly_report', array( 't' => time(), 'text' => $text, 'chats' => count( $rows ) ), false );
+		[ $text, $sugg ] = AISR_Learning::split_report( $text );
+		update_option( 'aisr_weekly_report', array( 't' => time(), 'text' => $text, 'chats' => count( $rows ), 'suggestions' => $sugg ), false );
 		$to = AISR_Settings::get( 'handoff_email' );
 		if ( $email && $to ) {
-			wp_mail( $to, 'דוח שבועי מנציג ה-AI: למה לא קנו ומה לתקן', $text . "\n\n" . admin_url( 'admin.php?page=aisr-dashboard' ) );
+			wp_mail( $to, 'דוח שבועי מנציג ה-AI: למה לא קנו ומה לתקן', $text . ( $sugg ? "\n\n" . count( $sugg ) . ' הצעות לתשובות מחכות לאישור בתור הלמידה.' : '' ) . "\n\n" . admin_url( 'admin.php?page=aisr-dashboard' ) . '#aisr-learn' );
 		}
 		return $text;
 	}
