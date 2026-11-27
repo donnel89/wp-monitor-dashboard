@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) || exit;
 
 class AISR_DB {
 
-	const SCHEMA_VERSION = '1';
+	const SCHEMA_VERSION = '2';
 
 	public static function conversations(): string {
 		global $wpdb;
@@ -77,6 +77,8 @@ class AISR_DB {
 				KEY conv_uuid (conv_uuid)
 			) $charset;"
 		);
+
+		dbDelta( AISR_Followup::schema( $charset ) ); // Phone leads and WhatsApp follow-ups.
 
 		update_option( 'aisr_schema', self::SCHEMA_VERSION, false );
 	}

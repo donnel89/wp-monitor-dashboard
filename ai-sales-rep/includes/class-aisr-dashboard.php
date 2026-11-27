@@ -236,6 +236,8 @@ class AISR_Dashboard {
 				</tbody>
 			</table>
 
+			<?php AISR_Followup::render( $days ); ?>
+
 			<?php AISR_Learning::render(); ?>
 
 			<h2 id="aisr-weekly">דוח שבועי: למה לא קנו ומה לתקן</h2>

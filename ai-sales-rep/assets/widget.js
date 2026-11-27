@@ -291,6 +291,30 @@
 		a.addEventListener('click', function () { track('clicked', { trigger: 'save_whatsapp' }); });
 		return a;
 	}
+	// Phone for something the shopper wants, with an unchecked marketing consent box.
+	function phoneCard(a) {
+		var wrap = el('div', 'aisr-action'), box = el('form', 'aisr-phone');
+		box.appendChild(el('div', 'aisr-phone-title', a.title));
+		var name = el('input', 'aisr-pk-text'); name.type = 'text'; name.placeholder = 'שם (לא חובה)'; name.autocomplete = 'given-name'; name.maxLength = 40;
+		var tel = el('input', 'aisr-pk-text'); tel.type = 'tel'; tel.inputMode = 'tel'; tel.placeholder = 'מספר טלפון'; tel.autocomplete = 'tel'; tel.required = true; tel.maxLength = 16; tel.dir = 'ltr';
+		box.appendChild(name); box.appendChild(tel);
+		var lab = el('label', 'aisr-phone-consent'), cb = el('input'); cb.type = 'checkbox';
+		lab.appendChild(cb); lab.appendChild(el('span', null, a.consent)); box.appendChild(lab);
+		var err = el('div', 'aisr-phone-err', ''); box.appendChild(err);
+		var b = el('button', 'aisr-btn aisr-pk-go', 'שליחה'); b.type = 'submit'; box.appendChild(b);
+		box.addEventListener('submit', function (e) {
+			e.preventDefault();
+			var digits = tel.value.replace(/\D/g, '');
+			if (!/^(05\d{8}|0[2-9]\d{7}|9725\d{8}|972[2-9]\d{7})$/.test(digits)) { err.textContent = 'נראה שהמספר לא מלא. אפשר לבדוק?'; return; }
+			b.disabled = true; b.textContent = 'שולח…'; err.textContent = '';
+			post('/lead', { conversation_id: convId, visitor: visitor, phone: tel.value, name: name.value, marketing: cb.checked ? 1 : 0, reason: a.reason, product_ids: a.product_ids || [], occasion: a.occasion || '', date: a.date || '', url: location.href }).then(function (r) {
+				box.innerHTML = ''; box.appendChild(el('div', 'aisr-phone-done', '✓ ' + (r.message || 'נשמר.')));
+				track('clicked', { trigger: 'phone_' + a.reason });
+			}).catch(function () { b.disabled = false; b.textContent = 'שליחה'; err.textContent = 'לא הצלחנו לשמור. אפשר לנסות שוב.'; });
+		});
+		wrap.appendChild(box);
+		return wrap;
+	}
 	// One smart add-on under the add-to-cart confirmation, added in one tap.
 	function addonCard(p, onAdded, onTouch) {
 		var box = el('div', 'aisr-addon');
@@ -447,6 +471,7 @@
 			return wrap;
 		}
 		if (a.type === 'options') { return picker(a.sheet); }
+		if (a.type === 'phone') { return phoneCard(a); }
 		if (a.type === 'gift') {
 			var g = el('div', 'aisr-gift');
 			g.appendChild(el('div', 'aisr-gift-title', '💌 הברכה תיכנס להזמנה'));

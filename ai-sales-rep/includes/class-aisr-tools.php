@@ -219,6 +219,20 @@ class AISR_Tools {
 				),
 			),
 			array(
+				'name'        => 'ask_phone',
+				'description' => 'Show a card in the chat where the shopper leaves their phone for something they want: their choice sent to WhatsApp (save_choice), an update when an item is back (back_in_stock) or a made-to-order item is ready (ready_update), a reminder before an occasion (reminder, with date YYYY-MM-DD about a week before and the occasion), a sketch of the name for a personalized item (name_sketch), workshop dates (workshop_dates), a sale on what they liked (price_drop), or the studio getting back to them (general). The card has its own consent checkbox. Use it at most once per conversation.',
+				'inputSchema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'reason'      => array( 'type' => 'string', 'enum' => array_keys( AISR_Followup::REASONS ) ),
+						'product_ids' => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ) ),
+						'occasion'    => array( 'type' => 'string' ),
+						'date'        => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'reason' ),
+				),
+			),
+			array(
 				'name'        => 'save_lead',
 				'description' => 'Save contact details the visitor explicitly gave you so the store can get back to them. Ask for consent first. marketing_consent is true only if they explicitly agreed to receive reminders/offers.',
 				'inputSchema' => array(
@@ -261,6 +275,7 @@ class AISR_Tools {
 				'record_insight'  => $this->record_insight( $input ),
 				'add_to_cart'     => $this->add_to_cart( $input ),
 				'show_options'    => $this->show_options( $input ),
+				'ask_phone'       => $this->ask_phone( $input ),
 				'offer_coupon'    => $this->offer_coupon( $input ),
 				'track_order'     => $this->track_order( $input ),
 				'request_human'   => $this->request_human( $input ),
@@ -502,6 +517,35 @@ class AISR_Tools {
 		}
 		$go = end( $this->actions )['checkout'];
 		return array( 'queued' => true, 'choices' => $shown, 'note' => 'The chat adds it to the cart now and shows a confirmation under your message' . ( $go ? ', then takes the shopper to checkout' : '' ) . '. Say in one short sentence that you are adding it, with the choices' . ( $go ? ', and that it moves to payment' : '' ) . '. Do not ask another question.' );
+	}
+
+	/** The phone card: what they get for it, with an unchecked marketing consent checkbox. */
+	private function ask_phone( array $in ): array {
+		if ( '' !== (string) ( $this->conv['lead_phone'] ?? '' ) ) {
+			return array( 'error' => 'already_has_phone', 'note' => 'The shopper already left a phone in this conversation. Do not ask again.' );
+		}
+		foreach ( $this->actions as $a ) {
+			if ( 'phone' === ( $a['type'] ?? '' ) ) {
+				return array( 'error' => 'already_shown' );
+			}
+		}
+		$reason   = isset( AISR_Followup::REASONS[ $in['reason'] ?? '' ] ) ? $in['reason'] : 'general';
+		$products = array_values( array_filter( array_slice( array_map( 'absint', (array) ( $in['product_ids'] ?? array() ) ), 0, 3 ) ) );
+		if ( ! $products && ! empty( $this->page['product_id'] ) ) {
+			$products = array( (int) $this->page['product_id'] );
+		}
+		$occasion = mb_substr( sanitize_text_field( (string) ( $in['occasion'] ?? '' ) ), 0, 60 );
+		$card     = AISR_Followup::card( $reason, $products, $occasion );
+		$this->actions[] = array(
+			'type'        => 'phone',
+			'reason'      => $reason,
+			'product_ids' => $products,
+			'occasion'    => $occasion,
+			'date'        => preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $in['date'] ?? '' ) ) ? $in['date'] : '',
+			'title'       => $card['title'],
+			'consent'     => $card['consent'],
+		);
+		return array( 'shown' => true, 'note' => 'A phone card is under your message. In one short sentence say what they get (e.g. "אפשר להשאיר כאן טלפון ונשלח לך…"). Do not ask them to type the number in the chat, and do not repeat the consent text.' );
 	}
 
 	/** A picker in the chat for colors, sizes and option fields, with the recommendation preselected. */

@@ -226,6 +226,11 @@ class AISR_Growth {
 			$lines[] = 'תזכורת ל' . $r['occasion'] . ' · ' . ( $r['name'] ?: 'ללא שם' ) . "\n" . $link;
 		}
 
+		$fu = AISR_Followup::email_lines();
+		if ( $fu ) {
+			$lines[] = "וואטסאפ לשלוח היום (לחיצה מסמנת שנשלח ופותחת את ההודעה):";
+			$lines   = array_merge( $lines, $fu );
+		}
 		if ( ! $lines ) {
 			return;
 		}

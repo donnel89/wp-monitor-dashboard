@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AI Sales Rep for WooCommerce
  * Description:       נציג מכירות AI לחנויות ווקומרס: פנייה יזומה לפי התנהגות הגולש, שיחת אבחון והמלצה, קופונים לפי כללים, שיוך מכירות ודשבורד רווחיות.
- * Version:           1.11.2
+ * Version:           1.12.1
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'AISR_VERSION', '1.11.2' );
+define( 'AISR_VERSION', '1.12.1' );
 define( 'AISR_FILE', __FILE__ );
 define( 'AISR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AISR_URL', plugin_dir_url( __FILE__ ) );
@@ -45,6 +45,7 @@ require_once AISR_DIR . 'includes/class-aisr-cron.php';
 require_once AISR_DIR . 'includes/class-aisr-growth.php';
 require_once AISR_DIR . 'includes/class-aisr-learning.php';
 require_once AISR_DIR . 'includes/class-aisr-addons.php';
+require_once AISR_DIR . 'includes/class-aisr-followup.php';
 
 register_activation_hook( __FILE__, array( 'AISR_DB', 'install' ) );
 register_activation_hook( __FILE__, array( 'AISR_Cron', 'schedule' ) );
@@ -83,5 +84,6 @@ add_action(
 		AISR_Cron::init();
 		AISR_Growth::init();
 		AISR_Learning::init();
+		AISR_Followup::init();
 	}
 );
