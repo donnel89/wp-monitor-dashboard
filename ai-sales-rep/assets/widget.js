@@ -663,7 +663,7 @@
 		return on && grp !== 'control' && !fired && !get(SS, 'proactive', false) && !get(SS, 'dismissed', false) && panel.hidden && !history.length;
 	}
 	var firedSet = {}, lastShownAt = 0;
-	var PRIORITY = { copy_name: 3, add_error: 3, shipping_cost: 3, checkout_help: 3, rage_click: 2, search_empty: 3,
+	var PRIORITY = { copy_name: 3, save_image: 3, screenshot: 3, add_error: 3, shipping_cost: 3, checkout_help: 3, rage_click: 2, search_empty: 3,
 		cart_made: 2, holiday_made: 2, holiday_deadline: 2, freeship_gap: 2, gallery: 2, tab_return: 2, exit_scroll: 2, made_lead: 2, compare_many: 2, policy_return: 2 };
 	var currentTrigger = '';
 	function prio(t) { return PRIORITY[t] || 1; }
@@ -771,6 +771,36 @@
 				if (name && (name.indexOf(sel) !== -1 || sel.indexOf(name) !== -1)) fire('copy_name', true);
 			}, 350);
 		});
+	}
+
+	// Saving what they see. A web page cannot know that a phone took a screenshot (no browser reports it),
+	// so these are the signals it can see: a long press or right click on a product image (save image),
+	// and the Print Screen key on a computer.
+	if (page.type === 'product') {
+		var IMG = '.woocommerce-product-gallery, .wc-block-product-gallery, #commercegurus-pdp-gallery, .cg-psp-gallery, .pswp, .dialog-lightbox-widget, .elementor-lightbox';
+		var onImage = function (t) { return t && t.closest && !root.contains(t) && (t.tagName === 'IMG' || t.closest('img')) && t.closest(IMG); };
+		document.addEventListener('contextmenu', function (e) { if (onImage(e.target)) { dbg('event: image menu'); fire('save_image', true); } }, true);
+		var lp = null;
+		document.addEventListener('touchstart', function (e) {
+			clearTimeout(lp && lp.timer); lp = null;
+			if (!e.touches || e.touches.length !== 1 || !onImage(e.target)) return;
+			var t0 = e.touches[0];
+			lp = { x: t0.clientX, y: t0.clientY, timer: setTimeout(function () { dbg('event: image long press'); fire('save_image', true); }, 650) };
+		}, { passive: true });
+		var lpCancel = function (e) {
+			if (!lp) return;
+			if (e.type === 'touchmove' && e.touches && e.touches[0] && Math.abs(e.touches[0].clientX - lp.x) < 12 && Math.abs(e.touches[0].clientY - lp.y) < 12) return;
+			clearTimeout(lp.timer); lp = null;
+		};
+		document.addEventListener('touchmove', lpCancel, { passive: true });
+		document.addEventListener('touchend', lpCancel, { passive: true });
+		document.addEventListener('touchcancel', lpCancel, { passive: true });
+		var shotKey = function (e) {
+			var k = e.key || '', c = e.code || '';
+			if (k === 'PrintScreen' || c === 'PrintScreen' || (e.metaKey && e.shiftKey && /^Digit[345]$/.test(c)) || (e.metaKey && e.shiftKey && k === 's')) { dbg('event: screenshot key'); fire('screenshot', true); }
+		};
+		document.addEventListener('keyup', shotKey, true);
+		document.addEventListener('keydown', function (e) { if (e.metaKey && e.shiftKey) shotKey(e); }, true);
 	}
 
 	// Left to another app/tab and came back.

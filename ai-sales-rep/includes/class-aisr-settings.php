@@ -15,6 +15,8 @@ class AISR_Settings {
 			'product_dwell'      => 'שהייה בעמוד מוצר',
 			'copy_name'          => 'העתקת שם המוצר (השוואת מחירים)',
 			'tab_return'         => 'יציאה לאפליקציה אחרת וחזרה',
+			'save_image'         => 'לחיצה ארוכה על תמונת מוצר (שמירת תמונה)',
+			'screenshot'         => 'צילום מסך במחשב (Print Screen)',
 			'exit_scroll'        => 'גלילה מהירה למעלה (כוונת יציאה)',
 			'reread'             => 'גלילה הלוך ושוב (קריאת ביקורות/מפרט)',
 			'gallery'            => 'הגדלה או דפדוף בתמונות',
@@ -178,7 +180,25 @@ class AISR_Settings {
 		return in_array( $day, $days, true ) && $time >= $s['hours_start'] && $time < $end;
 	}
 
+	/** Triggers added in an update are switched on once for stores that saved their settings before. */
+	const NEW_TRIGGERS = array( 'save_image', 'screenshot' );
+
+	public static function enable_new_triggers(): void {
+		$done  = (array) get_option( 'aisr_triggers_added', array() );
+		$todo  = array_values( array_diff( self::NEW_TRIGGERS, $done ) );
+		if ( ! $todo ) {
+			return;
+		}
+		$saved = get_option( self::OPTION, array() );
+		if ( is_array( $saved ) && isset( $saved['enabled_triggers'] ) ) {
+			$saved['enabled_triggers'] = array_values( array_unique( array_merge( (array) $saved['enabled_triggers'], $todo ) ) );
+			update_option( self::OPTION, $saved );
+		}
+		update_option( 'aisr_triggers_added', array_merge( $done, $todo ), false );
+	}
+
 	public static function init(): void {
+		self::enable_new_triggers();
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_post_aisr_save_settings', array( __CLASS__, 'save' ) );
 		add_action( 'admin_post_aisr_import_settings', array( __CLASS__, 'import' ) );
