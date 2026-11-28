@@ -120,7 +120,30 @@ class AISR_Dashboard {
 
 		$leads = $wpdb->get_results( "SELECT started_at, lead_name, lead_phone, lead_email, lead_marketing, handoff FROM $convs WHERE lead_phone <> '' OR lead_email <> '' ORDER BY id DESC LIMIT 20", ARRAY_A ); // phpcs:ignore WordPress.DB
 
+		// Per local day, last 14 days: how many visitors were on the site and how many of them used the chat
+		// (wrote at least one message). Visitors are counted by the widget's browser id.
+		$off     = (int) round( (float) get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
+		$since14 = gmdate( 'Y-m-d H:i:s', strtotime( wp_date( 'Y-m-d 00:00:00', time() - 13 * DAY_IN_SECONDS ) ) - $off );
+		$daily   = array();
+		foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT DATE(DATE_ADD(created_at, INTERVAL %d SECOND)) d, COUNT(*) n, COUNT(DISTINCT visitor) u FROM $events WHERE type='visit' AND created_at >= %s GROUP BY d", $off, $since14 ), ARRAY_A ) as $r ) { // phpcs:ignore WordPress.DB
+			$daily[ $r['d'] ] = array( 'visits' => (int) $r['n'], 'visitors' => (int) $r['u'], 'chat' => 0, 'convs' => 0 );
+		}
+		foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT DATE(DATE_ADD(started_at, INTERVAL %d SECOND)) d, COUNT(*) n, COUNT(DISTINCT visitor) u FROM $convs WHERE user_turns > 0 AND started_at >= %s GROUP BY d", $off, $since14 ), ARRAY_A ) as $r ) { // phpcs:ignore WordPress.DB
+			if ( ! isset( $daily[ $r['d'] ] ) ) {
+				$daily[ $r['d'] ] = array( 'visits' => 0, 'visitors' => 0 );
+			}
+			$daily[ $r['d'] ]['chat']  = (int) $r['u'];
+			$daily[ $r['d'] ]['convs'] = (int) $r['n'];
+		}
+		$daily_total = array(
+			'visitors' => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(DISTINCT visitor) FROM $events WHERE type='visit' AND created_at >= %s", $since14 ) ), // phpcs:ignore WordPress.DB
+			'chat'     => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(DISTINCT visitor) FROM $convs WHERE user_turns > 0 AND started_at >= %s", $since14 ) ), // phpcs:ignore WordPress.DB
+		);
+		krsort( $daily );
+
 		return array(
+			'daily'         => $daily,
+			'daily_total'   => $daily_total,
 			'days'          => $days,
 			'visits'        => $visits,
 			'orders'        => $orders,
@@ -192,6 +215,20 @@ class AISR_Dashboard {
 				<div class="aisr-kpi"><span>ביקורים (בדיקה / ביקורת)</span><b><?php echo esc_html( number_format_i18n( $st['visits']['test'] ) . ' / ' . number_format_i18n( $st['visits']['control'] ) ); ?></b><span>הזמנות: <?php echo esc_html( $st['orders']['test'] . ' / ' . $st['orders']['control'] ); ?></span></div>
 			</div>
 			<p class="description">רווח לחנות = מכירות משויכות × עמלה − עלות AI. התוספת בהמרה מחושבת מול גולשים שלא קיבלו פניות יזומות, וזו ההוכחה שהבוט מוסיף מכירות ולא רק נזקף להן.</p>
+
+			<h2>גולשים באתר ומי מהם השתמש בצ'אט (14 ימים אחרונים)</h2>
+			<?php $dt = $st['daily_total']; ?>
+			<p style="font-size:15px"><b><?php echo esc_html( number_format_i18n( $dt['chat'] ) ); ?></b> השתמשו בצ'אט מתוך <b><?php echo esc_html( number_format_i18n( $dt['visitors'] ) ); ?></b> גולשים באתר (<?php echo esc_html( $dt['visitors'] ? round( 100 * $dt['chat'] / $dt['visitors'], 1 ) . '%' : '—' ); ?>).</p>
+			<table class="widefat striped" style="max-width:760px">
+				<thead><tr><th>יום</th><th>גולשים באתר</th><th>השתמשו בצ'אט</th><th>אחוז</th><th>ביקורים</th><th>שיחות</th></tr></thead>
+				<tbody>
+				<?php foreach ( $st['daily'] as $d => $row ) : ?>
+					<tr><td><?php echo esc_html( wp_date( 'l j.n', strtotime( $d . ' 12:00:00' ) ) ); ?></td><td><?php echo esc_html( number_format_i18n( $row['visitors'] ) ); ?></td><td><?php echo esc_html( number_format_i18n( $row['chat'] ) ); ?></td><td><?php echo esc_html( ( $row['visitors'] ? round( 100 * $row['chat'] / $row['visitors'], 1 ) . '%' : '—' ) ); ?></td><td><?php echo esc_html( number_format_i18n( $row['visits'] ) ); ?></td><td><?php echo esc_html( number_format_i18n( $row['convs'] ) ); ?></td></tr>
+				<?php endforeach; ?>
+				<?php if ( ! $st['daily'] ) : ?><tr><td colspan="6">עדיין אין נתונים.</td></tr><?php endif; ?>
+				</tbody>
+			</table>
+			<p class="description">גולש = דפדפן שהבוט נטען בו (כל מי שנכנס לאתר מאז שהבוט נפתח לכולם ב-26.11). השתמש בצ'אט = כתב לבוט לפחות הודעה אחת. ביקור = כניסה בלשונית. גולש שלא אישר עוגיות נספר מחדש בכל ביקור, ולכן מספר הגולשים קרוב לגבול העליון.</p>
 
 			<h2>ביצועי טריגרים</h2>
 			<table class="widefat striped">
